@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.1)
 project(rtsr)
 
 # Parameters
@@ -13,39 +13,31 @@ else()
     message("CUDA features disabled")
 endif(ENABLE_CUDA)
 
-include(ExternalProject)
-ExternalProject_Add(libigl
-    PREFIX "${CMAKE_BINARY_DIR}/ext/libigl"
-    GIT_PROGRESS 1
-    GIT_REPOSITORY https://github.com/libigl/libigl.git 
-    UPDATE_DISCONNECTED 1
-    LOG_DOWNLOAD 1
-    LOG_BUILD 1
-    LOG_INSTALL 1
-    CONFIGURE_COMMAND ${CMAKE_COMMAND} <SOURCE_DIR>/optional
-    INSTALL_COMMAND "" # Libigl doesn't provide install command :(
-    CMAKE_ARGS
-       "LIBIGL_USE_STATIC_LIBRARY=ON"
-       "-DCMAKE_BUILD_TYPE=Release"
-       )
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR})
 
-ExternalProject_Get_Property(libigl SOURCE_DIR)
+# libigl
+option(LIBIGL_USE_STATIC_LIBRARY "Use libigl as static library" ON)
+option(LIBIGL_WITH_ANTTWEAKBAR       "Use AntTweakBar"    OFF)
+option(LIBIGL_WITH_CGAL              "Use CGAL"           OFF)
+option(LIBIGL_WITH_COMISO            "Use CoMiso"         OFF)
+option(LIBIGL_WITH_CORK              "Use Cork"           OFF)
+option(LIBIGL_WITH_EMBREE            "Use Embree"         OFF)
+option(LIBIGL_WITH_LIM               "Use LIM"            OFF)
+option(LIBIGL_WITH_MATLAB            "Use Matlab"         OFF)
+option(LIBIGL_WITH_MOSEK             "Use MOSEK"          OFF)
+option(LIBIGL_WITH_OPENGL            "Use OpenGL"         ON)
+option(LIBIGL_WITH_OPENGL_GLFW       "Use GLFW"           ON)
+option(LIBIGL_WITH_OPENGL_GLFW_IMGUI "Use ImGui"          OFF)
+option(LIBIGL_WITH_PNG               "Use PNG"            OFF)
+option(LIBIGL_WITH_PYTHON            "Use Python"         OFF)
+option(LIBIGL_WITH_TETGEN            "Use Tetgen"         OFF)
+option(LIBIGL_WITH_TRIANGLE          "Use Triangle"       OFF)
+option(LIBIGL_WITH_VIEWER            "Use OpenGL viewer"  ON)
+option(LIBIGL_WITH_XML               "Use XML"            OFF)
 
-set(LIBIGL_EXTRA_INCLUDE_DIRS
-    ${SOURCE_DIR}/include
-    ${SOURCE_DIR}/external/eigen/
-    # add more of libigl's dependencies if needed
-    )
-
-ExternalProject_Get_Property(libigl BINARY_DIR)
-
-set(LIBIGL_LIBRARIES
-    ${BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}glad${CMAKE_STATIC_LIBRARY_SUFFIX}
-    ${BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}glfw3${CMAKE_STATIC_LIBRARY_SUFFIX}
-    ${BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}igl_core${CMAKE_STATIC_LIBRARY_SUFFIX}
-    ${BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}igl_opengl_glfw${CMAKE_STATIC_LIBRARY_SUFFIX}
-    ${BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}triangle${CMAKE_STATIC_LIBRARY_SUFFIX}
-    )
-
+find_package(LIBIGL REQUIRED QUIET)
+add_subdirectory("${LIBIGL_INCLUDE_DIR}/../shared/cmake" "libigl")
+add_definitions(${LIBIGL_DEFINITIONS})
 
 add_subdirectory("src/")

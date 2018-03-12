@@ -7,9 +7,7 @@ if (ENABLE_CUDA)
 endif(ENABLE_CUDA)
 
 
-include_directories(${LIBIGL_INCLUDE_DIR}
-                    ${LIBIGL_EXTRA_INCLUDE_DIRS})
-add_definitions(${LIBIGL_DEFINITIONS})
+include_directories(${LIBIGL_INCLUDE_DIRS})
 
 add_executable(${PROJECT_NAME} ${CXX_SRC} ${CU_SRC} ${LIBIGL_EXTRA_SOURCES})
 target_link_libraries(${PROJECT_NAME} ${LIBIGL_LIBRARIES} ${LIBIGL_EXTRA_LIBRARIES})
