@@ -10,11 +10,13 @@ git clone --recursive https://github.com/asterycs/rtsr.git
 ```
 ```
 cd rtsr
-cd libigl/
-git apply ../libigl_static_build.patch
-cd ..
 mkdir build
 cd build/
 cmake ../
 make
 ```
+
+13.3.2018:  
+Started experimenting with this data -> https://vision.in.tum.de/data/datasets/rgbd-dataset/download#freiburg1_desk
+
+./rtsr <path_to_data>
