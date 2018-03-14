@@ -6,6 +6,14 @@
 
 #include <iostream>
 
+void normalizedImageCoordinateFromPixelCoordinate(const unsigned int x, const unsigned int y, const Eigen::Vector2d size, Eigen::Vector2d& coord)
+{
+  float pixelWidth  = 2.f / size(0);
+  float pixelHeight = 2.f / size(1);
+
+  coord = Eigen::Vector2d(-1.0 + 0.5 * pixelWidth + x * pixelWidth, -1.0 + 0.5 * pixelHeight + y * pixelHeight);
+}
+
 std::string& trim_left(std::string& str, const char* t = " \t\n\r\f\v")
 {
     str.erase(0, str.find_first_not_of(t));
@@ -33,6 +41,8 @@ bool DataSet::get_next_point_cloud(Eigen::MatrixXd& points, Eigen::Matrix4d& wor
 {
   if (!operational)
     return false;
+    
+  getNextCamera(world2camera);
   
   if (depth_it != std::experimental::filesystem::directory_iterator())
   {
@@ -46,7 +56,12 @@ bool DataSet::get_next_point_cloud(Eigen::MatrixXd& points, Eigen::Matrix4d& wor
     {
       for (int x = 0; x < width; ++x)
       {
-        points.row(x + y*width) << x,y,png[(x+y*width)*bpp];
+        Eigen::Vector2d normCoord;
+        normalizedImageCoordinateFromPixelCoordinate(x, y, Eigen::Vector2d(width, height), normCoord);
+        
+        Eigen::Vector4d point; point << normCoord(0),normCoord(1),png[(x+y*width)*bpp]/5000.0,1.0; // Scaling factor 5000 from data doc
+        
+        points.row(x + y*width) << (world2camera.inverse() * point).head<3>().transpose();
       }
     }
     
