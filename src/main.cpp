@@ -1,13 +1,10 @@
 #include "igl/opengl/glfw/Viewer.h"
 #include "igl/readOFF.h"
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
-#include "Eigen/Geometry"
+#include "DataSet.hpp"
 
 #include <iostream>
 #include <fstream>
 #include <sstream>
-#include <experimental/filesystem>
 
 bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int modifiers) {
     std::cout << "Keyboard callback!" << std::endl;
@@ -15,77 +12,38 @@ bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int
     return true;
 }
 
-std::string& trim_left(std::string& str, const char* t = " \t\n\r\f\v")
+void create_flat_mesh(Eigen::MatrixXd& V, Eigen::MatrixXi& F, const Eigen::MatrixXd& P)
 {
-    str.erase(0, str.find_first_not_of(t));
-    return str;
-}
-
-bool readWorld2Camera(std::vector<Eigen::Matrix4d>& world2cameras, const std::string& folder)
-{
-    std::ifstream camera_ref_file(folder + "/groundtruth.txt");
-    
-    if (!camera_ref_file.is_open())
-    {
-      std::cerr << "Couldn't open groundtruth.txt" << std::endl;
-      return false;
-    }
-    
-    world2cameras.clear();
-    std::string line;
-    
-    while (std::getline(camera_ref_file, line))
-    {
-      if (line.empty())
-        break;
-        
-      if (trim_left(line)[0] == '#')
-        continue;
-      
-      std::stringstream line_stream(line);
-            
-      double time, tx, ty, tz, qi, qj, qk, ql;
-      
-      line_stream >> time >> tx >> ty >> tz >> qi >> qj >> qk >> ql;
-      
-      Eigen::Affine3d t(Eigen::Translation3d(Eigen::Vector3d(tx, ty, tz)));
-      Eigen::Affine3d r(Eigen::Quaterniond(qi, qj, qk, ql));
-      
-      Eigen::Matrix4d cam = t.matrix() * r.matrix();
-      
-      world2cameras.push_back(cam);
-    }
-    
-    return true;
-}
-
-bool readDepthMaps(const std::vector<Eigen::Matrix4d>& word2camera, std::vector<Eigen::MatrixXd>& points, const std::string& folder)
-{
-  int img_cntr = 0;
-  points.clear();  
+  Eigen::RowVector3d bb_min = P.colwise().minCoeff();
+  Eigen::RowVector3d bb_max = P.colwise().maxCoeff();
   
-  for (auto& p : std::experimental::filesystem::directory_iterator(folder + "/depth/"))
+  const double stepl = 1;
+  
+  const int y_steps = (bb_max(1) - bb_min(1))/stepl;
+  const int x_steps = (bb_max(0) - bb_min(0))/stepl;
+  
+  V.resize(y_steps*x_steps, 3);
+  F.resize(y_steps*x_steps*2, 3);
+
+#pragma omp parallel for
+  for (int y_step = 0; y_step < y_steps; ++y_step)
   {
-    int width, height, bpp;
-    unsigned char* png = stbi_load(p.path().string().c_str(), &width, &height, &bpp, 1);
-    
-    points.push_back(Eigen::MatrixXd(width*height, 3));
-    
-    for (int y = 0; y < height; ++y)
+    for (int x_step = 0; x_step < x_steps; ++x_step)
     {
-      for (int x = 0; x < width; ++x)
-      {
-        points.back().row(x + y*width) << x,y,png[(x+y*width)*bpp];
-      }
+      V.row(x_step + y_step*x_steps) << x_step*stepl,y_step*stepl,0;
     }
-    
-    stbi_image_free(png);
-    ++img_cntr;
-    
-    break;
   }
   
-  return true;
+#pragma omp parallel for
+  for (int y_step = 0; y_step < y_steps; ++y_step)
+  {
+    for (int x_step = 0; x_step < x_steps; ++x_step)
+    {
+      std::cout << V.row(x_step+y_step*x_steps) << std::endl << V.row(x_step+1+y_step*x_steps) << std::endl << V.row(x_step+(y_step+1)*x_steps) << std::endl;
+      F.row(x_step*2 + y_step*x_steps*2) << x_step+y_step*x_steps,x_step+1+y_step*x_steps,x_step+(y_step+1)*x_steps;
+      F.row(x_step*2 + y_step*x_steps*2 + 1) << x_step+1+(y_step+1)*x_steps,x_step+(y_step+1)*x_steps,x_step+y_step*x_steps;
+    }
+  }
 }
 
 
@@ -101,30 +59,31 @@ int main(int argc, char *argv[]) {
 
     std::string folder(argv[1]);
     
-    std::vector<Eigen::Matrix4d> world2camera;
+    DataSet ds(folder);
     
-    if (!readWorld2Camera(world2camera, folder))
+    Eigen::MatrixXd points;
+    Eigen::Matrix4d world2cam;
+    if (!ds.get_next_point_cloud(points, world2cam))
     {
-      std::cerr << "Douldn't open \"groundtruth.txt\"" << std::endl;
+      std::cerr << "Couldn't read data" << std::endl;
       return EXIT_FAILURE;
     }
     
-    
-    std::vector<Eigen::MatrixXd> points;
-    
-    if (!readDepthMaps(world2camera, points, folder))
-    {
-      std::cerr << "Couldn't open depth data" << std::endl;
-      return EXIT_FAILURE;
-    }
+    Eigen::MatrixXd V;
+    Eigen::MatrixXi F;
+    create_flat_mesh(V, F, points);
 
     igl::opengl::glfw::Viewer viewer;
     viewer.callback_key_down = callback_key_down;
     
     viewer.data().clear();
-    viewer.core.align_camera_center(points[0]);
+    viewer.core.align_camera_center(points);
     viewer.data().point_size = 5;
-    viewer.data().add_points(points[0], Eigen::RowVector3d(0.7,0.7f,0.f));
+    //viewer.data().add_points(points, Eigen::RowVector3d(0.7,0.7f,0.f));
+    //viewer.data().add_points(V, Eigen::RowVector3d(0.7,0.7f,0.f));
+    
+    //std::cout << F << std::endl << V.rows() << std::endl;
+    viewer.data().set_mesh(V, F);
 
     viewer.launch();
 }
