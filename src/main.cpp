@@ -35,13 +35,14 @@ void create_flat_mesh(Eigen::MatrixXd& V, Eigen::MatrixXi& F, const Eigen::Matri
   }
   
 #pragma omp parallel for
-  for (int y_step = 0; y_step < y_steps; ++y_step)
+  for (int y_step = 0; y_step < y_steps-1; ++y_step)
   {
-    for (int x_step = 0; x_step < x_steps; ++x_step)
+    for (int x_step = 0; x_step < x_steps-1; ++x_step)
     {
-      std::cout << V.row(x_step+y_step*x_steps) << std::endl << V.row(x_step+1+y_step*x_steps) << std::endl << V.row(x_step+(y_step+1)*x_steps) << std::endl;
+      //std::cout << x_step+y_step*x_steps << " " << x_step+1+y_step*x_steps << " " << x_step+(y_step+1)*x_steps << std::endl;
+      //std::cout << V.row(x_step+y_step*x_steps) << std::endl << V.row(x_step+1+y_step*x_steps) << std::endl << V.row(x_step+(y_step+1)*x_steps) << std::endl;
       F.row(x_step*2 + y_step*x_steps*2) << x_step+y_step*x_steps,x_step+1+y_step*x_steps,x_step+(y_step+1)*x_steps;
-      F.row(x_step*2 + y_step*x_steps*2 + 1) << x_step+1+(y_step+1)*x_steps,x_step+(y_step+1)*x_steps,x_step+y_step*x_steps;
+      F.row(x_step*2 + y_step*x_steps*2 + 1) << x_step+1+(y_step+1)*x_steps,x_step+(y_step+1)*x_steps,x_step+1+y_step*x_steps;
     }
   }
 }
@@ -82,7 +83,6 @@ int main(int argc, char *argv[]) {
     //viewer.data().add_points(points, Eigen::RowVector3d(0.7,0.7f,0.f));
     //viewer.data().add_points(V, Eigen::RowVector3d(0.7,0.7f,0.f));
     
-    //std::cout << F << std::endl << V.rows() << std::endl;
     viewer.data().set_mesh(V, F);
 
     viewer.launch();
