@@ -14,11 +14,12 @@ public:
   
   bool get_next_point_cloud(Eigen::MatrixXd& P, Eigen::Matrix4d& world2camera);
 private:
-  bool getNextCamera(Eigen::Matrix4d& cam);
+  bool getNextCamera(Eigen::Matrix4d& cam, const double timestamp);
 
   bool operational;
-  std::experimental::filesystem::directory_iterator depth_it;
-  std::ifstream camera_ref_file;
+  std::vector<std::string> depth_files;
+  int next_file_idx;
+  std::string camera_ref_file_name;
 };
 
 #endif // DATASET_HPP
