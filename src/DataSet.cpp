@@ -82,7 +82,7 @@ bool DataSet::get_next_point_cloud(Eigen::MatrixXd& points, Eigen::Matrix4d& wor
   if (!getNextCamera(world2camera, time_stamp_d))
     return false;
     
-  const Eigen::Matrix4d world2camera_inv = world2camera;
+  const Eigen::Matrix4d world2camera_inv = world2camera.inverse();
   
   if (static_cast<unsigned int>(next_file_idx) < depth_files.size())
   {    
