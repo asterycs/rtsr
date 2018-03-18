@@ -55,7 +55,7 @@ std::string& trim_left(std::string& str, const char* t = " \t\n\r\f\v")
 
 DataSet::DataSet(const std::string& folder) : next_file_idx(0), camera_ref_file_name(folder+"groundtruth.txt")
 {
-  std::experimental::filesystem::directory_iterator depth_it(folder + "/depth/");
+  boost::filesystem::directory_iterator depth_it(folder + "/depth/");
   
   for (auto& it : depth_it)
     depth_files.push_back(it.path().string());
