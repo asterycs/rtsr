@@ -145,6 +145,8 @@ bool DataSet::get_next_point_cloud(Eigen::MatrixXd& points, Eigen::Matrix4d& wor
 struct CameraEntry
 {
   double time, tx, ty, tz, qi, qj, qk, ql;
+  
+  CameraEntry() : time(0), tx(0), ty(0), tz(0), qi(0), qj(0), qk(0), ql(0) {};
 };
 
 bool DataSet::getNextCamera(Eigen::Matrix4d& cam, const double timestamp)
