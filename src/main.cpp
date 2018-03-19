@@ -4,12 +4,15 @@
 #include "igl/fit_plane.h"
 #include "igl/mat_min.h"
 #include "DataSet.hpp"
+#include <Eigen/Geometry>
 
 #include <GLFW/glfw3.h>
 
 #include <iostream>
 #include <fstream>
 #include <sstream>
+
+#define MESH_RESOLUTION 100
 
 DataSet* global_ds_ptr; // Dirty dirty...
 
@@ -58,46 +61,39 @@ void create_flat_mesh(Eigen::MatrixXd& V, Eigen::MatrixXi& F, const Eigen::Matri
   Eigen::RowVector3d plane_normal, plane_point;
   igl::fit_plane(P, plane_normal, plane_point);
   
-  Eigen::RowVector3d bb_min = P.colwise().minCoeff();
-  Eigen::RowVector3d bb_max = P.colwise().maxCoeff();
+  const Eigen::RowVector3d bb_min = P.colwise().minCoeff();
+  const Eigen::RowVector3d bb_max = P.colwise().maxCoeff();
   Eigen::RowVector3d bb_d = (bb_max - bb_min).cwiseAbs();
   
+  std::sort(bb_d.data(),bb_d.data()+bb_d.size());
+  const Eigen::Affine3d scaling(Eigen::Scaling(Eigen::Vector3d(bb_d(0)/MESH_RESOLUTION, bb_d(1)/MESH_RESOLUTION,0)));
   
   const Eigen::Vector3d P_centr = P.colwise().mean();
-  const Eigen::Vector3d m_centr = (bb_max + bb_min) * 0.5;
-  const Eigen::Affine3d t(Eigen::Translation3d(P_centr - m_centr));
+  const Eigen::Affine3d t(Eigen::Translation3d(P_centr - Eigen::Vector3d(0,0,0)));
   const Eigen::Affine3d r(getBasis(plane_normal));
   
   const Eigen::Matrix4d transform = t.matrix() * r.matrix();
-  
-  std::sort(bb_d.data(),bb_d.data()+bb_d.size());
-  
-  const double stepl = 0.01;
-  
-  const int y_steps = bb_d(0)/stepl;
-  const int x_steps = bb_d(1)/stepl;
-  
-  
-  V.resize(y_steps*x_steps, 3);
-  F.resize(y_steps*x_steps*2, 3);
+    
+  V.resize(MESH_RESOLUTION*MESH_RESOLUTION, 3);
+  F.resize((MESH_RESOLUTION-1)*(MESH_RESOLUTION-1)*2, 3);
 
 #pragma omp parallel for
-  for (int y_step = 0; y_step < y_steps; ++y_step)
+  for (int y_step = 0; y_step < MESH_RESOLUTION; ++y_step)
   {
-    for (int x_step = 0; x_step < x_steps; ++x_step)
+    for (int x_step = 0; x_step < MESH_RESOLUTION; ++x_step)
     {
-      Eigen::RowVector4d v; v << (bb_min + Eigen::RowVector3d(x_step*stepl,y_step*stepl,0)),1.0;
-      V.row(x_step + y_step*x_steps) << (v * transform.transpose()).head<3>();
+      Eigen::RowVector4d v; v << Eigen::RowVector3d(x_step-MESH_RESOLUTION/2,y_step-MESH_RESOLUTION/2,0),1.0;
+      V.row(x_step + y_step*MESH_RESOLUTION) << (v * scaling.matrix().transpose()* transform.transpose()).head<3>();
     }
   }
   
 #pragma omp parallel for
-  for (int y_step = 0; y_step < y_steps-1; ++y_step)
+  for (int y_step = 0; y_step < MESH_RESOLUTION-1; ++y_step)
   {
-    for (int x_step = 0; x_step < x_steps-1; ++x_step)
+    for (int x_step = 0; x_step < MESH_RESOLUTION-1; ++x_step)
     {
-      F.row(x_step*2 + y_step*x_steps*2) << x_step+y_step*x_steps,x_step+1+y_step*x_steps,x_step+(y_step+1)*x_steps;
-      F.row(x_step*2 + y_step*x_steps*2 + 1) << x_step+1+(y_step+1)*x_steps,x_step+(y_step+1)*x_steps,x_step+1+y_step*x_steps;
+      F.row(x_step*2 + y_step*(MESH_RESOLUTION-1)*2)     << x_step+   y_step   *MESH_RESOLUTION,x_step+1+y_step*   MESH_RESOLUTION,x_step+(y_step+1)*MESH_RESOLUTION;
+      F.row(x_step*2 + y_step*(MESH_RESOLUTION-1)*2 + 1) << x_step+1+(y_step+1)*MESH_RESOLUTION,x_step+ (y_step+1)*MESH_RESOLUTION,x_step+1+y_step*MESH_RESOLUTION;
     }
   }
 }
@@ -159,7 +155,7 @@ int main(int argc, char *argv[]) {
     viewer.core.align_camera_center(points);
     viewer.data().point_size = 5;
     viewer.data().add_points(points, Eigen::RowVector3d(0.f,0.7f,0.7f));
-    //viewer.data().set_mesh(V, F);
+    viewer.data().set_mesh(V, F);
 
     viewer.launch();
 }
