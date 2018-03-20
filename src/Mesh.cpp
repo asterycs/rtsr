@@ -6,6 +6,22 @@
 
 #include <iostream>
 
+template <typename Derived>
+void remove_empty_rows(const Eigen::MatrixBase<Derived>& in, Eigen::MatrixBase<Derived> const& out_)
+{
+  Eigen::Matrix<bool, Eigen::Dynamic, 1> non_minus_one = (in.col(0) != -1);
+  
+  typename Eigen::MatrixBase<Derived>& out = const_cast<Eigen::MatrixBase<Derived>&>(out_);
+  out.derived().resize(non_minus_one.count(), in.cols());
+
+  typename Eigen::MatrixBase<Derived>::Index j = 0;
+  for(typename Eigen::MatrixBase<Derived>::Index i = 0; i < in.rows(); ++i)
+  {
+    if (non_minus_one(i))
+      out.row(j++) = in.row(i);
+  }
+}
+
 Eigen::Matrix3d getBasis(const Eigen::Vector3d& n) {
 
   Eigen::Matrix3d R;
@@ -33,10 +49,12 @@ Eigen::Matrix3d getBasis(const Eigen::Vector3d& n) {
 
 Mesh::Mesh()
 {
+  
 }
 
 Mesh::~Mesh()
 {
+  
 }
 
 void Mesh::align_to_point_cloud(const Eigen::MatrixXd& P)
@@ -49,25 +67,23 @@ void Mesh::align_to_point_cloud(const Eigen::MatrixXd& P)
   const Eigen::RowVector3d bb_max = P.colwise().maxCoeff();
   Eigen::RowVector3d bb_d = (bb_max - bb_min).cwiseAbs();
   
-  std::sort(bb_d.data(),bb_d.data()+bb_d.size());
-  const Eigen::Affine3d scaling(Eigen::Scaling(Eigen::Vector3d(bb_d(0)/MESH_RESOLUTION, bb_d(1)/MESH_RESOLUTION,0)));
+  const Eigen::Affine3d scaling(Eigen::Scaling(Eigen::Vector3d(bb_d(0)/MESH_RESOLUTION, 0.,bb_d(2)/MESH_RESOLUTION)));
   
   const Eigen::Vector3d P_centr = P.colwise().mean();
   const Eigen::Affine3d t(Eigen::Translation3d(P_centr - Eigen::Vector3d(0,0,0))); // Remove the zero vector if you dare ;)
-  const Eigen::Affine3d r(getBasis(plane_normal));
   
-  const Eigen::Matrix4d transform = t.matrix() * r.matrix();
+  transform = t.matrix();
     
   V.resize(MESH_RESOLUTION*MESH_RESOLUTION, 3);
   F.resize((MESH_RESOLUTION-1)*(MESH_RESOLUTION-1)*2, 3);
 
 #pragma omp parallel for
-  for (int y_step = 0; y_step < MESH_RESOLUTION; ++y_step)
+  for (int z_step = 0; z_step < MESH_RESOLUTION; ++z_step)
   {
     for (int x_step = 0; x_step < MESH_RESOLUTION; ++x_step)
     {
-      Eigen::RowVector4d v; v << Eigen::RowVector3d(x_step-MESH_RESOLUTION/2,y_step-MESH_RESOLUTION/2,0),1.0;
-      V.row(x_step + y_step*MESH_RESOLUTION) << (v * scaling.matrix().transpose()* transform.transpose()).head<3>();
+      Eigen::RowVector4d v; v << Eigen::RowVector3d(x_step-MESH_RESOLUTION/2,0.0,z_step-MESH_RESOLUTION/2),1.0;
+      V.row(x_step + z_step*MESH_RESOLUTION) << (v * scaling.matrix().transpose() * transform.transpose()).head<3>();
     }
   }
   

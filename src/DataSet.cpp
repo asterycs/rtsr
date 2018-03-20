@@ -8,22 +8,6 @@
 #include <iomanip>
 #include <Eigen/Dense>
 
-template <typename Derived>
-void remove_empty_rows(const Eigen::MatrixBase<Derived>& in, Eigen::MatrixBase<Derived> const& out_)
-{
-  Eigen::Matrix<bool, Eigen::Dynamic, 1> non_zeros = in.template cast<bool>().rowwise().any();
-  
-  typename Eigen::MatrixBase<Derived>& out = const_cast<Eigen::MatrixBase<Derived>&>(out_);
-  out.derived().resize(non_zeros.count(), in.cols());
-
-  typename Eigen::MatrixBase<Derived>::Index j = 0;
-  for(typename Eigen::MatrixBase<Derived>::Index i = 0; i < in.rows(); ++i)
-  {
-    if (non_zeros(i))
-      out.row(j++) = in.row(i);
-  }
-}
-
 std::string strip_file_suffix(const std::string& s)
 {
   std::string::size_type idx = s.rfind('.');
@@ -113,8 +97,9 @@ bool DataSet::get_next_point_cloud(Eigen::MatrixXd& points, Eigen::Matrix4d& wor
     int width, height, bpp;
     unsigned char* png = stbi_load(depth_files[next_file_idx].c_str(), &width, &height, &bpp, 1);
     
-    Eigen::MatrixXd unfiltered_points(width*height, 3); // This one will contain zero rows
+    points.resize(width*height, 3);
     
+    int rowcntr = 0;
 #pragma omp parallel for
     for (int y = 0; y < height; ++y)
     {
@@ -129,12 +114,15 @@ bool DataSet::get_next_point_cloud(Eigen::MatrixXd& points, Eigen::Matrix4d& wor
         Eigen::RowVector4d camera_point; camera_point << camCoord.transpose(),1.0;
         Eigen::RowVector4d world_point = world2camera_inv * camera_point.transpose();
         
-        unfiltered_points.row(x + y*width) << world_point.head<3>();
+#pragma omp critical
+        {
+          points.row(rowcntr) << world_point.head<3>();
+          ++rowcntr;
+        }
       }
     }
     
-    remove_empty_rows(unfiltered_points, points);
-    
+    points.conservativeResize(rowcntr, Eigen::NoChange);
     stbi_image_free(png);
     next_file_idx++;
   }

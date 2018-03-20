@@ -22,6 +22,7 @@ private:
   Eigen::MatrixXd V;
   Eigen::MatrixXi F;
   Eigen::Vector3d mesh_normal;
+  Eigen::Matrix4d transform;
 };
 
 #endif // MESH_HPP

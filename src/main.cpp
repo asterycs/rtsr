@@ -71,6 +71,10 @@ int main(int argc, char *argv[]) {
     viewer.data().point_size = 5;
     viewer.data().add_points(points, Eigen::RowVector3d(0.f,0.7f,0.7f));
     viewer.data().set_mesh(mesh.vertices(), mesh.faces());
+
+    for (int i = 0; i < points.rows(); ++i)
+      if (points.row(i).isZero(0.01))
+        std::cout << points.row(i) << std::endl;
     
     viewer.launch();
 }
