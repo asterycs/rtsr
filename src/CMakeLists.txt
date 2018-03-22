@@ -11,6 +11,12 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror -Wno-error=unused-
 add_executable(${PROJECT_NAME} ${CXX_SRC} ${CU_SRC})
 target_link_libraries(${PROJECT_NAME} ${Boost_LIBRARIES} igl::core igl::opengl_glfw igl::triangle igl::embree)
 
+include(CheckIPOSupported)
+check_ipo_supported(RESULT ipo_result)
+if(ipo_result)
+    set_property(TARGET ${PROJECT_NAME} PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+endif()
+
 if (ENABLE_CUDA)
     set_target_properties(${PROJECT_NAME} PROPERTIES CUDA_STANDARD 14 CUDA_SEPARABLE_COMPILATION ON CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 endif(ENABLE_CUDA)

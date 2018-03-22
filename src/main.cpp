@@ -23,7 +23,7 @@ bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int
   if (!global_ds_ptr->get_next_point_cloud(points, world2cam))
   {
     std::cerr << "Couldn't read data" << std::endl;
-    return EXIT_FAILURE;
+    return false;
   }
 
   viewer.data().add_points(points, Eigen::RowVector3d(0.f,0.7f,0.7f));
@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
     
     Mesh mesh;
     mesh.align_to_point_cloud(points); // Resets the mesh everytime it is called
-    //mesh.solve(points); // Does nothing but is supposed to fit the mesh
+    mesh.solve(points);
     
     igl::opengl::glfw::Viewer viewer;    
     viewer.callback_key_down = callback_key_down;
@@ -72,9 +72,5 @@ int main(int argc, char *argv[]) {
     viewer.data().add_points(points, Eigen::RowVector3d(0.f,0.7f,0.7f));
     viewer.data().set_mesh(mesh.vertices(), mesh.faces());
 
-    for (int i = 0; i < points.rows(); ++i)
-      if (points.row(i).isZero(0.01))
-        std::cout << points.row(i) << std::endl;
-    
     viewer.launch();
 }
