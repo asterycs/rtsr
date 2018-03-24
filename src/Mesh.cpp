@@ -48,7 +48,7 @@ void remove_empty_rows(const Eigen::MatrixBase<Derived>& in, Eigen::MatrixBase<D
   }
 }
 
-Eigen::Matrix3d getBasis(const Eigen::Vector3d& n) {
+Eigen::Matrix3d get_basis(const Eigen::Vector3d& n) {
 
   Eigen::Matrix3d R;
 
@@ -99,6 +99,8 @@ void Mesh::align_to_point_cloud(const Eigen::MatrixXd& P)
   h.resize(MESH_RESOLUTION*MESH_RESOLUTION);
   V.resize(MESH_RESOLUTION*MESH_RESOLUTION, 3);
   F.resize((MESH_RESOLUTION-1)*(MESH_RESOLUTION-1)*2, 3);
+  JtJ.resize(MESH_RESOLUTION);
+  Jtz.resize(MESH_RESOLUTION);
 
 #pragma omp parallel for
   for (int z_step = 0; z_step < MESH_RESOLUTION; ++z_step)
@@ -146,8 +148,11 @@ void Mesh::solve(const Eigen::MatrixXd& P)
   Eigen::MatrixXd filtered_bc;
   remove_empty_rows(bc, filtered_bc);
   
-  
-  JtJMatrix JtJ(MESH_RESOLUTION*MESH_RESOLUTION, MESH_RESOLUTION*MESH_RESOLUTION);
+  /*for (int i = 0; i < filtered_bc.rows(); ++i)
+  {
+    const Eigen::RowVector3d& row = filtered_bc.row(i);
+    JtJ.update_triangle(static_cast<int>(row(0)), 1, 1);
+  }*/
   
   for (int ti = 0; ti < (MESH_RESOLUTION-1)*(MESH_RESOLUTION-1)*2; ++ti)
   {
