@@ -6,6 +6,7 @@
 #include "igl/barycentric_to_global.h"
 
 #include <iostream>
+#include <cstdlib>
 
 template <typename A, typename B>
 Eigen::Matrix<typename B::Scalar, A::RowsAtCompileTime, A::ColsAtCompileTime> 
@@ -95,6 +96,7 @@ void Mesh::align_to_point_cloud(const Eigen::MatrixXd& P)
   
   transform = t.matrix();
     
+  h.resize(MESH_RESOLUTION*MESH_RESOLUTION);
   V.resize(MESH_RESOLUTION*MESH_RESOLUTION, 3);
   F.resize((MESH_RESOLUTION-1)*(MESH_RESOLUTION-1)*2, 3);
 
@@ -105,6 +107,8 @@ void Mesh::align_to_point_cloud(const Eigen::MatrixXd& P)
     {
       Eigen::RowVector4d v; v << Eigen::RowVector3d(x_step-MESH_RESOLUTION/2,1.0,z_step-MESH_RESOLUTION/2),1.0;
       V.row(x_step + z_step*MESH_RESOLUTION) << (v * scaling.matrix().transpose() * transform.transpose()).head<3>();
+      
+      h[x_step + z_step*MESH_RESOLUTION] = &V.row(x_step + z_step*MESH_RESOLUTION)(1);
     }
   }
   
@@ -113,6 +117,7 @@ void Mesh::align_to_point_cloud(const Eigen::MatrixXd& P)
   {
     for (int x_step = 0; x_step < MESH_RESOLUTION-1; ++x_step)
     {
+      // JtJ matrix implementation depends on this indexing, if you hange this you need to change the JtJ class.
       F.row(x_step*2 + y_step*(MESH_RESOLUTION-1)*2)     << x_step+   y_step   *MESH_RESOLUTION,x_step+1+y_step*   MESH_RESOLUTION,x_step+(y_step+1)*MESH_RESOLUTION;
       F.row(x_step*2 + y_step*(MESH_RESOLUTION-1)*2 + 1) << x_step+1+(y_step+1)*MESH_RESOLUTION,x_step+ (y_step+1)*MESH_RESOLUTION,x_step+1+y_step*MESH_RESOLUTION;
     }
@@ -141,15 +146,15 @@ void Mesh::solve(const Eigen::MatrixXd& P)
   Eigen::MatrixXd filtered_bc;
   remove_empty_rows(bc, filtered_bc);
   
-  //std::set<std::pair<int,std::vector<int>>> bc_per_tri;
   
-  SymmetricMatrix JtJ(2*MESH_RESOLUTION-1, 2*MESH_RESOLUTION-1);
+  JtJMatrix JtJ(MESH_RESOLUTION*MESH_RESOLUTION, MESH_RESOLUTION*MESH_RESOLUTION);
   
-  for (int i = 0; i < MESH_RESOLUTION; ++i)
+  for (int ti = 0; ti < (MESH_RESOLUTION-1)*(MESH_RESOLUTION-1)*2; ++ti)
   {
-    for (int j = 0; j < MESH_RESOLUTION; ++j)
-      JtJ.update_vertex(i + j * MESH_RESOLUTION, 1, 1);
+    JtJ.update_triangle(ti, 1, 1);
   }
+  
+  std::cout << JtJ.get_mat() << std::endl;
   
   //Eigen::MatrixXi V_idx = F.unaryExpr(filtered_bc.col(0).cast<int>());
   
