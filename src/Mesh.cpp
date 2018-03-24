@@ -134,7 +134,7 @@ void Mesh::solve(const Eigen::MatrixXd& P)
 {
   // Seems to be a bug in embree. tnear of a ray is not set corretly if vector is
   // along coordinate axis, needs slight offset.
-  /*Eigen::MatrixXd normals = Eigen::RowVector3d(0.0001, 1., 0.0).replicate(P.rows(), 1);
+  Eigen::MatrixXd normals = Eigen::RowVector3d(0.0001, 1., 0.0).replicate(P.rows(), 1);
   
   Eigen::MatrixXd bc = igl::embree::line_mesh_intersection(P, normals, V, F);
   
@@ -143,17 +143,17 @@ void Mesh::solve(const Eigen::MatrixXd& P)
   
   //std::set<std::pair<int,std::vector<int>>> bc_per_tri;
   
-  Eigen::SparseMatrix<double> JtJ(2*MESH_RESOLUTION-1, 2*MESH_RESOLUTION-1);
+  SymmetricMatrix JtJ(2*MESH_RESOLUTION-1, 2*MESH_RESOLUTION-1);
   
-  for (int i = 0; i < filtered_bc.rows(); ++i)
+  for (int i = 0; i < MESH_RESOLUTION; ++i)
   {
-    
+    for (int j = 0; j < MESH_RESOLUTION; ++j)
+      JtJ.update_vertex(i + j * MESH_RESOLUTION, 1, 1);
   }
   
-  Eigen::MatrixXi V_idx = F.unaryExpr(filtered_bc.col(0).cast<int>());
+  //Eigen::MatrixXi V_idx = F.unaryExpr(filtered_bc.col(0).cast<int>());
   
-  Eigen::matrixXd J = 
+  //Eigen::matrixXd J = 
   
   //std::cout << extract(F.col(0), filtered_bc.col(0).cast<int>()) << std::endl;
-  */
 }
