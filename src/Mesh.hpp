@@ -9,6 +9,7 @@
 
 #define MESH_RESOLUTION 5
 
+template <typename T>
 class Mesh
 {
 public:
@@ -16,20 +17,22 @@ public:
   Mesh();
   ~Mesh();
   
-  void align_to_point_cloud(const Eigen::MatrixXd& P); // Basically resets the mesh
-  void solve(const Eigen::MatrixXd& P);
+  template <typename Derived>
+  void align_to_point_cloud(const Eigen::MatrixBase<Derived>& P); // Basically resets the mesh
   
-  const Eigen::MatrixXd& vertices();
+  template <typename Derived>
+  void solve(const Eigen::MatrixBase<Derived>& P);
+  
+  const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& vertices();
   const Eigen::MatrixXi& faces();
   
 private:
-  JtJMatrix<double> JtJ;
-  JtzVector<double> Jtz;
-  Eigen::MatrixXd V;
+  JtJMatrix<T> JtJ;
+  JtzVector<T> Jtz;
+  Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> V;
   Eigen::MatrixXi F;
-  std::vector<double*> h;
-  Eigen::Vector3d mesh_normal;
-  Eigen::Matrix4d transform;
+  std::vector<T*> h;
+  Eigen::Matrix<T, 4, 4> transform;
 };
 
 #endif // MESH_HPP

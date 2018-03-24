@@ -14,7 +14,7 @@ public:
   void resize(const int mesh_width)
   {
     const int old_size = vec.rows();
-    Eigen::Matrix<T, Eigen::Dynamic, 1> newv = Eigen::Matrix<T, Eigen::Dynamic, 1>::Zero(mesh_width*mesh_width, 1);
+    Eigen::Matrix<T, Eigen::Dynamic, 1> newv = Eigen::Matrix<T, Eigen::Dynamic, 1>::Zero(mesh_width*3, 1);
     
     if (old_size > 0)
       newv.head(old_size) = vec; 

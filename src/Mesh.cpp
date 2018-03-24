@@ -31,7 +31,7 @@ void remove_empty_rows(const Eigen::MatrixBase<Derived>& in, Eigen::MatrixBase<D
 #pragma omp parallel for
   for (int i = 0; i < in.rows(); ++i)
   {
-    if (in.row(i).isApprox(Eigen::RowVector3d(-1., 0., 0.)))
+    if (in.row(i).isApprox(Eigen::Matrix<typename Derived::RealScalar, 1, 3>(-1., 0., 0.)))
       non_minus_one(i) = false;
     else
       non_minus_one(i) = true;
@@ -48,22 +48,23 @@ void remove_empty_rows(const Eigen::MatrixBase<Derived>& in, Eigen::MatrixBase<D
   }
 }
 
-Eigen::Matrix3d get_basis(const Eigen::Vector3d& n) {
+template <typename InType>
+Eigen::Matrix<InType, 3, 1> get_basis(const Eigen::Matrix<InType, 3, 1>& n) {
 
-  Eigen::Matrix3d R;
+  Eigen::Matrix<InType, 3, 3> R;
 
-  Eigen::Vector3d Q = n;
-  const Eigen::Vector3d absq = Q.cwiseAbs();
+  Eigen::Matrix<InType, 3, 1> Q = n;
+  const Eigen::Matrix<InType, 3, 1> absq = Q.cwiseAbs();
 
   Eigen::Matrix<int,1,1> min_idx;
-  Eigen::Matrix<double,1,1> min_elem;
+  Eigen::Matrix<InType,1,1> min_elem;
   
   igl::mat_min(absq, 1, min_elem, min_idx);
   
   Q(min_idx(0)) = 1;
 
-  Eigen::Vector3d T = Q.cross(n).normalized();
-  Eigen::Vector3d B = n.cross(T).normalized();
+  Eigen::Matrix<InType, 3, 1> T = Q.cross(n).normalized();
+  Eigen::Matrix<InType, 3, 1> B = n.cross(T).normalized();
 
   R.col(0) = T;
   R.col(1) = B;
@@ -72,27 +73,32 @@ Eigen::Matrix3d get_basis(const Eigen::Vector3d& n) {
   return R;
 }
 
-
-Mesh::Mesh()
+template <typename T>
+Mesh<T>::Mesh()
 {
   
 }
 
-Mesh::~Mesh()
+template <typename T>
+Mesh<T>::~Mesh()
 {
   
 }
 
-void Mesh::align_to_point_cloud(const Eigen::MatrixXd& P)
+template <typename T>
+template <typename Derived>
+void Mesh<T>::align_to_point_cloud(const Eigen::MatrixBase<Derived>& P)
 { 
-  const Eigen::RowVector3d bb_min = P.colwise().minCoeff();
-  const Eigen::RowVector3d bb_max = P.colwise().maxCoeff();
-  Eigen::RowVector3d bb_d = (bb_max - bb_min).cwiseAbs();
+  using ScalType = typename Derived::RealScalar;
   
-  const Eigen::Affine3d scaling(Eigen::Scaling(Eigen::Vector3d(bb_d(0)/MESH_RESOLUTION, 0.,bb_d(2)/MESH_RESOLUTION)));
+  const Eigen::Matrix<ScalType, 1, 3> bb_min = P.colwise().minCoeff();
+  const Eigen::Matrix<ScalType, 1, 3> bb_max = P.colwise().maxCoeff();
+  Eigen::Matrix<ScalType, 1, 3> bb_d = (bb_max - bb_min).cwiseAbs();
   
-  const Eigen::Vector3d P_centr = P.colwise().mean();
-  const Eigen::Affine3d t(Eigen::Translation3d(P_centr - Eigen::Vector3d(0,0,0))); // Remove the zero vector if you dare ;)
+  const Eigen::Transform<ScalType, 3, Eigen::Affine> scaling(Eigen::Scaling(Eigen::Matrix<ScalType, 3, 1>(bb_d(0)/MESH_RESOLUTION, 0.,bb_d(2)/MESH_RESOLUTION)));
+  
+  const Eigen::Matrix<ScalType, 1, 3> P_centr = P.colwise().mean();
+  const Eigen::Transform<ScalType, 3, Eigen::Affine> t(Eigen::Translation<ScalType, 3>(P_centr - Eigen::Matrix<ScalType, 1, 3>(0,0,0))); // Remove the zero vector if you dare ;)
   
   transform = t.matrix();
     
@@ -107,8 +113,8 @@ void Mesh::align_to_point_cloud(const Eigen::MatrixXd& P)
   {
     for (int x_step = 0; x_step < MESH_RESOLUTION; ++x_step)
     {
-      Eigen::RowVector4d v; v << Eigen::RowVector3d(x_step-MESH_RESOLUTION/2,1.0,z_step-MESH_RESOLUTION/2),1.0;
-      V.row(x_step + z_step*MESH_RESOLUTION) << (v * scaling.matrix().transpose() * transform.transpose()).head<3>();
+      Eigen::Matrix<ScalType, 1, 4> v; v << Eigen::Matrix<ScalType, 1, 3>(x_step-MESH_RESOLUTION/2,1.0,z_step-MESH_RESOLUTION/2),1.0;
+      V.row(x_step + z_step*MESH_RESOLUTION) << (v * scaling.matrix().transpose() * transform.transpose()).template head<3>();
       
       h[x_step + z_step*MESH_RESOLUTION] = &V.row(x_step + z_step*MESH_RESOLUTION)(1);
     }
@@ -126,44 +132,59 @@ void Mesh::align_to_point_cloud(const Eigen::MatrixXd& P)
   }
 }
 
-  
-const Eigen::MatrixXd& Mesh::vertices()
+template <typename T>
+const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& Mesh<T>::vertices()
 {
   return this->V;
 }
 
-const Eigen::MatrixXi& Mesh::faces()
+template <typename T>
+const Eigen::MatrixXi& Mesh<T>::faces()
 {
   return this->F;
 }
 
-void Mesh::solve(const Eigen::MatrixXd& P)
+template <typename T>
+template <typename Derived>
+void Mesh<T>::solve(const Eigen::MatrixBase<Derived>& P)
 {
+  using ScalType = typename Derived::RealScalar;
   // Seems to be a bug in embree. tnear of a ray is not set corretly if vector is
   // along coordinate axis, needs slight offset.
-  Eigen::MatrixXd normals = Eigen::RowVector3d(0.0001, 1., 0.0).replicate(P.rows(), 1);
+  Eigen::Matrix<ScalType, Eigen::Dynamic, Eigen::Dynamic> normals = Eigen::Matrix<ScalType, 1, 3>(0.0001, 1., 0.0).replicate(P.rows(), 1);
   
-  Eigen::MatrixXd bc = igl::embree::line_mesh_intersection(P, normals, V, F);
+  Eigen::Matrix<ScalType, Eigen::Dynamic, Eigen::Dynamic> bc = igl::embree::line_mesh_intersection(P.template cast<ScalType>(), normals, V, F);
   
-  Eigen::MatrixXd filtered_bc;
+  Eigen::Matrix<ScalType, Eigen::Dynamic, Eigen::Dynamic> filtered_bc;
   remove_empty_rows(bc, filtered_bc);
   
-  /*for (int i = 0; i < filtered_bc.rows(); ++i)
+  for (int i = 0; i < filtered_bc.rows(); ++i)
   {
-    const Eigen::RowVector3d& row = filtered_bc.row(i);
-    JtJ.update_triangle(static_cast<int>(row(0)), 1, 1);
-  }*/
-  
-  for (int ti = 0; ti < (MESH_RESOLUTION-1)*(MESH_RESOLUTION-1)*2; ++ti)
-  {
-    JtJ.update_triangle(ti, 1, 1);
+    const Eigen::Matrix<ScalType, 1, 3>& row = filtered_bc.row(i);
+    JtJ.update_triangle(static_cast<int>(row(0)), row(1), row(2));
   }
-  
-  std::cout << JtJ.get_mat() << std::endl;
-  
+  /*
+  for (int i = 0; i < bc.rows(); ++i)
+  {
+    if (static_cast<int>(bc.row(i)(0)) == -1)
+      continue;
+      
+    const Eigen::Matrix<ScalType, 1, 3>& row = bc.row(i);
+    
+    std::cout << row(0) << std::endl;
+    Jtz.update_triangle(static_cast<int>(row(0)), row(1), row(2), P.row(i)(1));
+  }
+  */
   //Eigen::MatrixXi V_idx = F.unaryExpr(filtered_bc.col(0).cast<int>());
-  
-  //Eigen::matrixXd J = 
   
   //std::cout << extract(F.col(0), filtered_bc.col(0).cast<int>()) << std::endl;
 }
+
+// Explicit instantiation
+template class Mesh<double>;
+template void Mesh<double>::align_to_point_cloud(const Eigen::MatrixBase<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>&);
+template void Mesh<double>::solve(const Eigen::MatrixBase<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>&);
+
+//template class Mesh<float>;
+//template void Mesh<float>::align_to_point_cloud(const Eigen::MatrixBase<Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>>&);
+//template void Mesh<float>::solve(const Eigen::MatrixBase<Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>>&);

@@ -59,7 +59,7 @@ int main(int argc, char *argv[]) {
       return EXIT_FAILURE;
     }
     
-    Mesh mesh;
+    Mesh<double> mesh;
     mesh.align_to_point_cloud(points); // Resets the mesh everytime it is called
     mesh.solve(points);
     
