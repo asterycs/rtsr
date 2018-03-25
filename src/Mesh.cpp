@@ -5,6 +5,8 @@
 #include "igl/mat_min.h"
 #include "igl/barycentric_to_global.h"
 
+#include <Eigen/QR>
+
 #include <iostream>
 #include <cstdlib>
 
@@ -95,9 +97,9 @@ void Mesh<T>::align_to_point_cloud(const Eigen::MatrixBase<Derived>& P)
   const Eigen::Matrix<ScalType, 1, 3> bb_max = P.colwise().maxCoeff();
   Eigen::Matrix<ScalType, 1, 3> bb_d = (bb_max - bb_min).cwiseAbs();
   
-  const Eigen::Transform<ScalType, 3, Eigen::Affine> scaling(Eigen::Scaling(Eigen::Matrix<ScalType, 3, 1>(bb_d(0)/MESH_RESOLUTION, 0.,bb_d(2)/MESH_RESOLUTION)));
+  const Eigen::Transform<ScalType, 3, Eigen::Affine> scaling(Eigen::Scaling(Eigen::Matrix<ScalType, 3, 1>(bb_d(0)/(MESH_RESOLUTION-1), 0.,bb_d(2)/(MESH_RESOLUTION-1))));
   
-  const Eigen::Matrix<ScalType, 1, 3> P_centr = P.colwise().mean();
+  const Eigen::Matrix<ScalType, 1, 3> P_centr = bb_min + 0.5*(bb_max - bb_min);
   const Eigen::Transform<ScalType, 3, Eigen::Affine> t(Eigen::Translation<ScalType, 3>(P_centr - Eigen::Matrix<ScalType, 1, 3>(0,0,0))); // Remove the zero vector if you dare ;)
   
   transform = t.matrix();
@@ -113,7 +115,7 @@ void Mesh<T>::align_to_point_cloud(const Eigen::MatrixBase<Derived>& P)
   {
     for (int x_step = 0; x_step < MESH_RESOLUTION; ++x_step)
     {
-      Eigen::Matrix<ScalType, 1, 4> v; v << Eigen::Matrix<ScalType, 1, 3>(x_step-MESH_RESOLUTION/2,1.0,z_step-MESH_RESOLUTION/2),1.0;
+      Eigen::Matrix<ScalType, 1, 4> v; v << Eigen::Matrix<ScalType, 1, 3>(x_step-(MESH_RESOLUTION-1)/2.0,1.0,z_step-(MESH_RESOLUTION-1)/2.0),1.0;
       V.row(x_step + z_step*MESH_RESOLUTION) << (v * scaling.matrix().transpose() * transform.transpose()).template head<3>();
       
       h[x_step + z_step*MESH_RESOLUTION] = &V.row(x_step + z_step*MESH_RESOLUTION)(1);
@@ -158,26 +160,33 @@ void Mesh<T>::solve(const Eigen::MatrixBase<Derived>& P)
   Eigen::Matrix<ScalType, Eigen::Dynamic, Eigen::Dynamic> filtered_bc;
   remove_empty_rows(bc, filtered_bc);
   
-  for (int i = 0; i < filtered_bc.rows(); ++i)
+  /*for (int i = 0; i < filtered_bc.rows(); ++i)
   {
     const Eigen::Matrix<ScalType, 1, 3>& row = filtered_bc.row(i);
     JtJ.update_triangle(static_cast<int>(row(0)), row(1), row(2));
-  }
-  /*
-  for (int i = 0; i < bc.rows(); ++i)
-  {
-    if (static_cast<int>(bc.row(i)(0)) == -1)
-      continue;
-      
-    const Eigen::Matrix<ScalType, 1, 3>& row = bc.row(i);
-    
-    std::cout << row(0) << std::endl;
-    Jtz.update_triangle(static_cast<int>(row(0)), row(1), row(2), P.row(i)(1));
-  }
-  */
-  //Eigen::MatrixXi V_idx = F.unaryExpr(filtered_bc.col(0).cast<int>());
+  }*/
   
-  //std::cout << extract(F.col(0), filtered_bc.col(0).cast<int>()) << std::endl;
+  JtJ.update_triangle(0, 0.33, 0.33); 
+  JtJ.update_triangle(1, 0.33, 0.33); 
+
+  Jtz.update_triangle(0, 0.33, 0.33, 1);
+  Jtz.update_triangle(1, 0.33, 0.33, 1);
+  
+  /*for (int i = 0; i < (MESH_RESOLUTION-1)*(MESH_RESOLUTION-1)*2; ++i)
+  {
+    Jtz.update_triangle(i, 0.33, 0.33, 1);
+  }*/
+    
+  std::cout << JtJ.get_mat() << std::endl << std::endl;
+  std::cout << JtJ.get_mat().completeOrthogonalDecomposition().pseudoInverse() << std::endl;
+  std::cout << Jtz.get_vec() << std::endl;
+  
+  Eigen::VectorXd res = JtJ.get_mat().colPivHouseholderQr().solve(Jtz.get_vec());
+  std::cout << res << std::endl;
+  
+  int cntr = 0;
+  for (T* hp : h)
+    *hp = res(cntr++);
 }
 
 // Explicit instantiation

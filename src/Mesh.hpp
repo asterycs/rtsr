@@ -7,7 +7,7 @@
 
 #include "EqHelpers.hpp"
 
-#define MESH_RESOLUTION 5
+#define MESH_RESOLUTION 2
 
 template <typename T>
 class Mesh
@@ -29,10 +29,10 @@ public:
 private:
   JtJMatrix<T> JtJ;
   JtzVector<T> Jtz;
-  Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> V;
-  Eigen::MatrixXi F;
-  std::vector<T*> h;
-  Eigen::Matrix<T, 4, 4> transform;
+  Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> V; // Vertices
+  Eigen::MatrixXi F; // Face vertex indices
+  std::vector<T*> h; // Pointers to the y coord in vertices that are solved in the linear system
+  Eigen::Matrix<T, 4, 4> transform; // Mesh location and orientation
 };
 
 #endif // MESH_HPP

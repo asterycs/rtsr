@@ -11,10 +11,15 @@ public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   JtzVector() = default;
   JtzVector(const int mesh_width) : vec(Eigen::Matrix<T, Eigen::Dynamic, 1>::Zero(mesh_width*mesh_width)) {};
+  const Eigen::Matrix<T, Eigen::Dynamic, 1>& get_vec()
+  {
+    return this->vec;
+  }
+  
   void resize(const int mesh_width)
   {
     const int old_size = vec.rows();
-    Eigen::Matrix<T, Eigen::Dynamic, 1> newv = Eigen::Matrix<T, Eigen::Dynamic, 1>::Zero(mesh_width*3, 1);
+    Eigen::Matrix<T, Eigen::Dynamic, 1> newv = Eigen::Matrix<T, Eigen::Dynamic, 1>::Zero(mesh_width*mesh_width, 1);
     
     if (old_size > 0)
       newv.head(old_size) = vec; 
@@ -22,11 +27,21 @@ public:
     vec = newv;
   }
   
-  void update_triangle(const int ti, const double a, const int b, const T val)
+  void update_triangle(const int ti, const T a, const T b, const T val)
   {
-    vec(ti * 3    ) =           a * val;
-    vec(ti * 3 + 1) =           b * val;
-    vec(ti * 3 + 2) = (1 - a - b) * val;
+    assert(ti < vec.rows());
+    
+    if (ti % 2 == 0)
+    {
+      vec(ti * 3    ) +=           a * val;
+      vec(ti * 3 + 1) +=           b * val;
+      vec(ti * 3 + 2) += (1 - a - b) * val;
+    }else // ti % 2 == 1
+    {
+      vec(ti * 3    ) +=           a * val;
+      vec(ti * 3 - 1) +=           b * val;
+      vec(ti * 3 - 2) += (1 - a - b) * val; 
+    }
   }
   
 private:
@@ -82,7 +97,7 @@ public:
       
       update(vidx,vidx,                                       a*a);
       update(vidx+1,vidx+1,                                   b*b);
-      update(vidx+2,vidx+2,                       (1-a-b)*(1-a-b));
+      update(vidx+mesh_width,vidx+mesh_width,     (1-a-b)*(1-a-b));
 
       if (vxidx < mesh_width-1)
         update(vidx,vidx+1,                                   a*b);
@@ -92,7 +107,6 @@ public:
 
       if (vyidx < mesh_width-1)
         update(vidx,vidx+mesh_width,                         (1-a-b)*a);
- 
     }else
     // ti % 2 == 1
     // Triangle is here (*):
@@ -106,12 +120,12 @@ public:
 
       const int vidx = vxidx + vyidx * mesh_width;
       
-      update(vidx,vidx,                       a*a);
-      update(vidx-1,vidx-1,                   b*b);
-      update(vidx-2,vidx-2,       (1-a-b)*(1-a-b));
+      update(vidx,vidx,                                   a*a);
+      update(vidx-1,vidx-1,                               b*b);
+      update(vidx-mesh_width,vidx-mesh_width, (1-a-b)*(1-a-b));
 
       if (vxidx > 0)
-        update(vidx,vidx-1,                   a*b);
+        update(vidx,vidx-1,                        a*b);
         
       if (vxidx > 0 && vyidx > 0)
         update(vidx-1,vidx+mesh_width,       (1-a-b)*b);
@@ -125,9 +139,11 @@ private:
   void update(const int r, const int c, const T val)
   {
     if (r < mat.rows() && c < mat.cols())
-      mat(r,c) = val;
-    if (c < mat.rows() && r < mat.cols())
-      mat(c,r) = val;
+      mat(r,c) += val;
+      
+    if (r != c)
+      if (c < mat.rows() && r < mat.cols())
+        mat(c,r) += val;
   }
   
   int mesh_width;
