@@ -3,6 +3,7 @@
 
 #include <Eigen/Geometry>
 #include <cassert>
+#include <iostream>
 
 template <typename T>
 class JtzVector
@@ -10,7 +11,7 @@ class JtzVector
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   JtzVector() = default;
-  JtzVector(const int mesh_width) : vec(Eigen::Matrix<T, Eigen::Dynamic, 1>::Zero(mesh_width*mesh_width)) {};
+  JtzVector(const int mesh_width) : mesh_width(mesh_width), vec(Eigen::Matrix<T, Eigen::Dynamic, 1>::Zero(mesh_width*mesh_width)) {};
   const Eigen::Matrix<T, Eigen::Dynamic, 1>& get_vec()
   {
     return this->vec;
@@ -25,26 +26,32 @@ public:
       newv.head(old_size) = vec; 
       
     vec = newv;
+    this->mesh_width = mesh_width;
   }
   
-  void update_triangle(const int ti, const T a, const T b, const T val)
+  void update_vertex(const int vi, const T a, const T b, const T val)
   {
-    assert(ti < vec.rows());
+    assert(vi < vec.rows());
     
-    if (ti % 2 == 0)
+    int offset = vi % mesh_width;
+    int multipl = vi / mesh_width;
+    
+    if (vi % 2 == 0)
     {
-      vec(ti * 3    ) +=           a * val;
-      vec(ti * 3 + 1) +=           b * val;
-      vec(ti * 3 + 2) += (1 - a - b) * val;
+      vec(offset +     multipl * mesh_width)      +=           a * val;
+      vec(offset + 1 + multipl * mesh_width)      +=           b * val;
+      vec(offset +    (multipl+1) * mesh_width)   += (1 - a - b) * val;
     }else // ti % 2 == 1
     {
-      vec(ti * 3    ) +=           a * val;
-      vec(ti * 3 - 1) +=           b * val;
-      vec(ti * 3 - 2) += (1 - a - b) * val; 
+      std::cout << "vi: " << vi << " idx: " << offset +    (multipl+1) * mesh_width << " " << offset - 1 +(multipl+1) * mesh_width << " " << offset +   +(multipl)   * mesh_width << std::endl;
+      vec(offset +    (multipl+1) * mesh_width) +=           a * val;
+      vec(offset - 1 +(multipl+1) * mesh_width) +=           b * val;
+      vec(offset +   +(multipl)   * mesh_width) += (1 - a - b) * val; 
     }
   }
   
 private:
+  int mesh_width;
   Eigen::Matrix<T, Eigen::Dynamic, 1> vec;
 };
 
@@ -128,10 +135,10 @@ public:
         update(vidx,vidx-1,                        a*b);
         
       if (vxidx > 0 && vyidx > 0)
-        update(vidx-1,vidx+mesh_width,       (1-a-b)*b);
+        update(vidx-mesh_width,vidx,       (1-a-b)*a);
 
       if (vyidx > 0)
-        update(vidx,vidx-mesh_width,         (1-a-b)*a); 
+        update(vidx-mesh_width,vidx-1,       (1-a-b)*b); 
     }
   }
   

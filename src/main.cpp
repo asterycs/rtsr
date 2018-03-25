@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
     
     Mesh<double> mesh;
     mesh.align_to_point_cloud(points); // Resets the mesh everytime it is called
-    //mesh.solve(points); // Use this to solve for the height field
+    mesh.solve(points); // Use this to solve for the height field
     
     igl::opengl::glfw::Viewer viewer;    
     viewer.callback_key_down = callback_key_down;

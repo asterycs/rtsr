@@ -40,7 +40,7 @@ std::vector<double>::const_iterator closest(std::vector<double> const& vec, doub
   return it;
 }
 
-void pixelToCameraCoord(const int x, const int y, const int z, Eigen::Vector3d& camCoord)
+void pixel_to_camera_coord(const int x, const int y, const int z, Eigen::Vector3d& camCoord)
 { 
   const double fx = 517.3; // Focal length
   const double fy = 516.5; // Focal length
@@ -87,7 +87,7 @@ bool DataSet::get_next_point_cloud(Eigen::MatrixXd& points, Eigen::Matrix4d& wor
   std::string time_stamp = strip_file_suffix(get_file_name(depth_files[next_file_idx]));
   double time_stamp_d = std::stod(time_stamp);
  
-  if (!getNextCamera(world2camera, time_stamp_d))
+  if (!get_next_camera(world2camera, time_stamp_d))
     return false;
     
   const Eigen::Matrix4d world2camera_inv = world2camera.inverse();
@@ -109,7 +109,7 @@ bool DataSet::get_next_point_cloud(Eigen::MatrixXd& points, Eigen::Matrix4d& wor
           continue;
           
         Eigen::Vector3d camCoord;
-        pixelToCameraCoord(x, y, png[(x+y*width)/bpp], camCoord);
+        pixel_to_camera_coord(x, y, png[(x+y*width)/bpp], camCoord);
         
         Eigen::RowVector4d camera_point; camera_point << camCoord.transpose(),1.0;
         Eigen::RowVector4d world_point = world2camera_inv * camera_point.transpose();
@@ -137,7 +137,7 @@ struct CameraEntry
   CameraEntry() : time(0), tx(0), ty(0), tz(0), qi(0), qj(0), qk(0), ql(0) {};
 };
 
-bool DataSet::getNextCamera(Eigen::Matrix4d& cam, const double timestamp)
+bool DataSet::get_next_camera(Eigen::Matrix4d& cam, const double timestamp)
 {
   if (!operational)
     return false;

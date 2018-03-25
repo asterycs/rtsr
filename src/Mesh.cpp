@@ -150,35 +150,34 @@ template <typename T>
 template <typename Derived>
 void Mesh<T>::solve(const Eigen::MatrixBase<Derived>& P)
 {
-  using ScalType = typename Derived::RealScalar;
+  //using ScalType = typename Derived::RealScalar;
   // Seems to be a bug in embree. tnear of a ray is not set corretly if vector is
   // along coordinate axis, needs slight offset.
-  Eigen::Matrix<ScalType, Eigen::Dynamic, Eigen::Dynamic> normals = Eigen::Matrix<ScalType, 1, 3>(0.0001, 1., 0.0).replicate(P.rows(), 1);
+  //Eigen::Matrix<ScalType, Eigen::Dynamic, Eigen::Dynamic> normals = Eigen::Matrix<ScalType, 1, 3>(0.0001, 1., 0.0).replicate(P.rows(), 1);
   
-  Eigen::Matrix<ScalType, Eigen::Dynamic, Eigen::Dynamic> bc = igl::embree::line_mesh_intersection(P.template cast<ScalType>(), normals, V, F);
+  //Eigen::Matrix<ScalType, Eigen::Dynamic, Eigen::Dynamic> bc = igl::embree::line_mesh_intersection(P.template cast<ScalType>(), normals, V, F);
   
-  Eigen::Matrix<ScalType, Eigen::Dynamic, Eigen::Dynamic> filtered_bc;
-  remove_empty_rows(bc, filtered_bc);
+  //Eigen::Matrix<ScalType, Eigen::Dynamic, Eigen::Dynamic> filtered_bc;
+  //remove_empty_rows(bc, filtered_bc);
   
-  /*for (int i = 0; i < filtered_bc.rows(); ++i)
+  for (int i = 0; i < (MESH_RESOLUTION-1)*(MESH_RESOLUTION-1)*2; ++i)
   {
-    const Eigen::Matrix<ScalType, 1, 3>& row = filtered_bc.row(i);
-    JtJ.update_triangle(static_cast<int>(row(0)), row(1), row(2));
-  }*/
+    //const Eigen::Matrix<ScalType, 1, 3>& row = filtered_bc.row(i);
+    JtJ.update_triangle(i, 0.33, 0.33);
+  }
   
-  JtJ.update_triangle(0, 0.33, 0.33); 
-  JtJ.update_triangle(1, 0.33, 0.33); 
+  //JtJ.update_triangle(1, 0.33, 0.33); 
+  //JtJ.update_triangle(1, 0.33, 0.33); 
 
-  Jtz.update_triangle(0, 0.33, 0.33, 1);
-  Jtz.update_triangle(1, 0.33, 0.33, 1);
+  //Jtz.update_triangle(0, 0.33, 0.33, 1);
+  //Jtz.update_triangle(1, 0.33, 0.33, 1);
   
-  /*for (int i = 0; i < (MESH_RESOLUTION-1)*(MESH_RESOLUTION-1)*2; ++i)
+  for (int i = 0; i < MESH_RESOLUTION*MESH_RESOLUTION; ++i)
   {
-    Jtz.update_triangle(i, 0.33, 0.33, 1);
-  }*/
+    //Jtz.update_vertex(i, 0.33, 0.33, 1);
+  }
     
   std::cout << JtJ.get_mat() << std::endl << std::endl;
-  std::cout << JtJ.get_mat().completeOrthogonalDecomposition().pseudoInverse() << std::endl;
   std::cout << Jtz.get_vec() << std::endl;
   
   Eigen::VectorXd res = JtJ.get_mat().colPivHouseholderQr().solve(Jtz.get_vec());
