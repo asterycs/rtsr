@@ -19,7 +19,7 @@ public:
   
   void resize(const int mesh_width)
   {
-    const int old_size = vec.rows();
+    const typename Eigen::Matrix<T, Eigen::Dynamic, 1>::Index old_size = vec.rows();
     Eigen::Matrix<T, Eigen::Dynamic, 1> newv = Eigen::Matrix<T, Eigen::Dynamic, 1>::Zero(mesh_width*mesh_width, 1);
     
     if (old_size > 0)
@@ -63,8 +63,8 @@ public:
   JtJMatrix(const int mesh_width) : mesh_width(mesh_width), mat(Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>::Zero(mesh_width*mesh_width, mesh_width*mesh_width)) {};
   void resize(const int mesh_width)
   {
-    const int old_r = mat.rows();
-    const int old_c = mat.cols();
+    const typename Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>::Index old_r = mat.rows();
+    const typename Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>::Index old_c = mat.cols();
     Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> newm = Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>::Zero(mesh_width*mesh_width, mesh_width*mesh_width);
     
     if (old_r > 0 && old_c > 0)

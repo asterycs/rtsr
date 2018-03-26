@@ -17,11 +17,11 @@ public:
   Mesh();
   ~Mesh();
   
-  template <typename Derived>
-  void align_to_point_cloud(const Eigen::MatrixBase<Derived>& P); // Basically resets the mesh
+  template <int Rows, int Cols>
+  void align_to_point_cloud(const Eigen::Matrix<T, Rows, Cols>& P);// Basically resets the mesh
   
-  template <typename Derived>
-  void solve(const Eigen::MatrixBase<Derived>& P);
+  template <int Rows, int Cols>
+  void solve(const Eigen::Matrix<T, Rows, Cols>& P);
   
   const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& vertices();
   const Eigen::MatrixXi& faces();
