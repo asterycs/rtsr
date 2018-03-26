@@ -7,7 +7,7 @@
 
 #include "EqHelpers.hpp"
 
-#define MESH_RESOLUTION 9
+#define MESH_RESOLUTION 3
 
 template <typename T>
 class Mesh

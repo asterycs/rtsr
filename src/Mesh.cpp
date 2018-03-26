@@ -150,7 +150,7 @@ void Mesh<T>::solve(const Eigen::Matrix<T, Rows, Cols>& P)
 {
   // Seems to be a bug in embree. tnear of a ray is not set corretly if vector is
   // along coordinate axis, needs slight offset.
-  Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> normals = Eigen::Matrix<T, 1, 3>(0.0001, 1., 0.0).replicate(P.rows(), 1);
+  /*Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> normals = Eigen::Matrix<T, 1, 3>(0.0001, 1., 0.0).replicate(P.rows(), 1);
   
   Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> bc = igl::embree::line_mesh_intersection(P, normals, V, F);
       
@@ -162,18 +162,28 @@ void Mesh<T>::solve(const Eigen::Matrix<T, Rows, Cols>& P)
     
     JtJ.update_triangle(static_cast<int>(row(0)), row(1), row(2));
     Jtz.update_triangle(static_cast<int>(row(0)), row(1), row(2), P.row(i)(1));
+  }*/
+  
+  Eigen::Matrix<T, 1, 3> mean = P.colwise().mean();
+  
+  std::cout << mean(1) << std::endl << std::endl;
+  
+  for (int i = 0; i < (MESH_RESOLUTION-1)*(MESH_RESOLUTION-1)*2; ++i)
+  {
+    JtJ.update_triangle(i, 0.33f, 0.33f);
+    Jtz.update_triangle(i, 0.33f, 0.33f, mean(1));
   }
       
-  //std::cout << JtJ.get_mat() << std::endl << std::endl;
-  //std::cout << Jtz.get_vec() << std::endl;
+  std::cout << JtJ.get_mat() << std::endl << std::endl;
+  std::cout << Jtz.get_vec() << std::endl << std::endl;
   
   //Eigen::Matrix<T, Eigen::Dynamic, 1> res = JtJ.get_mat().colPivHouseholderQr().solve(Jtz.get_vec());
-  Eigen::Matrix<T, Eigen::Dynamic, 1> res = JtJ.get_mat().completeOrthogonalDecomposition().pseudoInverse()*Jtz.get_vec();
-  std::cout << res << std::endl;
+  //Eigen::Matrix<T, Eigen::Dynamic, 1> res = JtJ.get_mat().completeOrthogonalDecomposition().pseudoInverse()*Jtz.get_vec();
+  //std::cout << res << std::endl;
   
-  int cntr = 0;
-  for (T* hp : h)
-    *hp = res(cntr++);
+  //int cntr = 0;
+  //for (T* hp : h)
+  //  *hp = res(cntr++);
 }
 
 template <typename T>

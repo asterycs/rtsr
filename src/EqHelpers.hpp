@@ -27,37 +27,31 @@ public:
       
     vec = newv;
     this->mesh_width = mesh_width;
-    
-    updates.resize(mesh_width*mesh_width);
   }
   
   void update_triangle(const int ti, const T a, const T b, const T val)
   {
     assert(ti < (mesh_width-1)*(mesh_width-1)*2);
     
-    ++updates(ti);
-    const T old_factor = (updates(ti)-1.f)/updates(ti);
-    
     const int offset  = ti/2 % (mesh_width-1);
     const int multipl = ti/2 / (mesh_width-1);
     
     if (ti % 2 == 0)
     {
-      vec(offset +     multipl * mesh_width)      = old_factor * vec(offset + multipl * mesh_width) + (1-old_factor) * a * val;
-      vec(offset + 1 + multipl * mesh_width)      = old_factor * vec(offset + 1 + multipl * mesh_width) + (1-old_factor) * b * val;
-      vec(offset +    (multipl+1) * mesh_width)   = old_factor * vec(offset +    (multipl+1) * mesh_width) + (1-old_factor) * (1 - a - b) * val;
+      vec(offset +     multipl * mesh_width)      += a * val;
+      vec(offset + 1 + multipl * mesh_width)      += b * val;
+      vec(offset +    (multipl+1) * mesh_width)   += (1 - a - b) * val;
     }else // ti % 2 == 1
     {
-      vec(1 + offset +    (multipl+1) * mesh_width) = old_factor * vec(1 + offset +    (multipl+1) * mesh_width) + (1-old_factor) * a * val;
-      vec(1 + offset - 1 +(multipl+1) * mesh_width) = old_factor * vec(1 + offset - 1 +(multipl+1) * mesh_width) + (1-old_factor) * b * val;
-      vec(1 + offset +   +(multipl)   * mesh_width) = old_factor * vec(1 + offset +   +(multipl)   * mesh_width) + (1-old_factor) * (1 - a - b) * val; 
+      vec(1 + offset +    (multipl+1) * mesh_width) += a * val;
+      vec(1 + offset - 1 +(multipl+1) * mesh_width) += b * val;
+      vec(1 + offset +   +(multipl)   * mesh_width) += (1 - a - b) * val; 
     }
   }
   
 private:
   int mesh_width;
   Eigen::Matrix<T, Eigen::Dynamic, 1> vec;
-  Eigen::Matrix<unsigned int, Eigen::Dynamic, 1> updates;
 };
 
 template <typename T>
@@ -78,8 +72,6 @@ public:
       
     mat = newm;
     this->mesh_width = mesh_width;
-    
-    updates.resize(mesh_width*mesh_width,mesh_width*mesh_width);
   }
   
   const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& get_mat()
@@ -151,14 +143,12 @@ public:
 private:
   void update(const int r, const int c, const T val)
   {
-    ++updates(r,c);
-    const T old_factor = (updates(r,c)-1.f)/updates(r,c);
     if (r < mat.rows() && c < mat.cols())
-      mat(r,c) = old_factor * mat(r,c) + (1-old_factor) * val;
+      mat(r,c) += val;
       
     if (r != c)
       if (c < mat.rows() && r < mat.cols())
-        mat(c,r) = old_factor * mat(c,r) + (1-old_factor) * val;
+        mat(c,r) += val;
   }
   
   int mesh_width;
