@@ -172,20 +172,20 @@ void Mesh<T>::solve(const Eigen::MatrixBase<Derived>& P)
   //Jtz.update_triangle(0, 0.33, 0.33, 1);
   //Jtz.update_triangle(1, 0.33, 0.33, 1);
   
-  for (int i = 0; i < MESH_RESOLUTION*MESH_RESOLUTION; ++i)
+  for (int i = 0; i < (MESH_RESOLUTION-1)*(MESH_RESOLUTION-1)*2; ++i)
   {
-    //Jtz.update_vertex(i, 0.33, 0.33, 1);
+    Jtz.update_vertex(i, 0.33, 0.33, 1);
   }
     
   std::cout << JtJ.get_mat() << std::endl << std::endl;
   std::cout << Jtz.get_vec() << std::endl;
   
-  Eigen::VectorXd res = JtJ.get_mat().colPivHouseholderQr().solve(Jtz.get_vec());
-  std::cout << res << std::endl;
+  //Eigen::VectorXd res = JtJ.get_mat().colPivHouseholderQr().solve(Jtz.get_vec());
+  //std::cout << res << std::endl;
   
-  int cntr = 0;
-  for (T* hp : h)
-    *hp = res(cntr++);
+  //int cntr = 0;
+  //for (T* hp : h)
+  //  *hp = res(cntr++);
 }
 
 // Explicit instantiation

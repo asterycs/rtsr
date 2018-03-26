@@ -33,8 +33,8 @@ public:
   {
     assert(vi < vec.rows());
     
-    int offset = vi % mesh_width;
-    int multipl = vi / mesh_width;
+    const int offset  = vi/2 % (mesh_width-1);
+    const int multipl = vi/2 / (mesh_width-1);
     
     if (vi % 2 == 0)
     {
@@ -43,10 +43,9 @@ public:
       vec(offset +    (multipl+1) * mesh_width)   += (1 - a - b) * val;
     }else // ti % 2 == 1
     {
-      std::cout << "vi: " << vi << " idx: " << offset +    (multipl+1) * mesh_width << " " << offset - 1 +(multipl+1) * mesh_width << " " << offset +   +(multipl)   * mesh_width << std::endl;
-      vec(offset +    (multipl+1) * mesh_width) +=           a * val;
-      vec(offset - 1 +(multipl+1) * mesh_width) +=           b * val;
-      vec(offset +   +(multipl)   * mesh_width) += (1 - a - b) * val; 
+      vec(1 + offset +    (multipl+1) * mesh_width) +=           a * val;
+      vec(1 + offset - 1 +(multipl+1) * mesh_width) +=           b * val;
+      vec(1 + offset +   +(multipl)   * mesh_width) += (1 - a - b) * val; 
     }
   }
   
@@ -80,7 +79,6 @@ public:
     return this->mat;
   }
 
-  // Discards old value. Should compute mean i believe...
   // ti indexed as:
   //   __ __ __
   //  |0/|2/|4/|...
