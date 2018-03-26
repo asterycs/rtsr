@@ -186,11 +186,32 @@ void Mesh<T>::solve(const Eigen::Matrix<T, Rows, Cols>& P)
   //  *hp = res(cntr++);
 }
 
+template <typename T>
+template <int JtJRows, int JtJCols, int JtzRows>
+void Mesh<T>::gauss_seidel(const Eigen::Matrix<T, JtJRows, JtJCols>& JtJ, Eigen::Matrix<T, JtzRows, 1>& h, Eigen::Matrix<T, JtzRows, 1>& Jtz, int iterations)
+{    
+    for(int i = 0; i < iterations; i++)
+    {
+        for (int v = 0; v < h.rows(); v++)
+        {
+            double xn = Jtz(v);
+            for (int x = 0; x < JtJ.rows(); x++)
+            {
+                for (int y = 0; y < JtJ.rows(); y++)
+                {
+                    xn -= h(x)*JtJ(x, y);
+                }
+            }
+            h(v) = xn / JtJ(v, v);
+        }
+    }
+}
 // Explicit instantiation
 template class Mesh<double>;
 template void Mesh<double>::align_to_point_cloud(const Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>&);
 template void Mesh<double>::solve(const Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>&);
+template void Mesh<double>::gauss_seidel(const Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>& JtJ, Eigen::Matrix<double, Eigen::Dynamic, 1>& h, Eigen::Matrix<double, Eigen::Dynamic, 1>& Jtz, int iterations);
 
-template class Mesh<float>;
-template void Mesh<float>::align_to_point_cloud(const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>&);
-template void Mesh<float>::solve(const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>&);
+//template class Mesh<float>;
+//template void Mesh<float>::align_to_point_cloud(const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>&);
+//template void Mesh<float>::solve(const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>&);

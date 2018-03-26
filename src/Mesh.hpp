@@ -33,6 +33,9 @@ private:
   Eigen::MatrixXi F; // Face vertex indices
   std::vector<T*> h; // Pointers to the y coord in vertices that are solved in the linear system
   Eigen::Matrix<T, 4, 4> transform; // Mesh location and orientation
+
+  template <int JtJRows, int JtJCols, int JtzRows>
+  void gauss_seidel(const Eigen::Matrix<T, JtJRows, JtJCols>& JtJ, Eigen::Matrix<T, JtzRows, 1>& h, Eigen::Matrix<T, JtzRows, 1>& Jtz, int iterations);
 };
 
 #endif // MESH_HPP
