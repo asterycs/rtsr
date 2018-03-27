@@ -105,7 +105,6 @@ void Mesh<T>::align_to_point_cloud(const Eigen::Matrix<T, Rows, Cols>& P)
   
   transform = t.matrix();
     
-  h.resize(MESH_RESOLUTION*MESH_RESOLUTION);
   V.resize(MESH_RESOLUTION*MESH_RESOLUTION, 3);
   F.resize((MESH_RESOLUTION-1)*(MESH_RESOLUTION-1)*2, 3);
   JtJ.resize(MESH_RESOLUTION);
@@ -118,8 +117,6 @@ void Mesh<T>::align_to_point_cloud(const Eigen::Matrix<T, Rows, Cols>& P)
     {
       Eigen::Matrix<T, 1, 4> v; v << TvecR3(x_step-(MESH_RESOLUTION-1)/2.f,1.f,z_step-(MESH_RESOLUTION-1)/2.f),1.f;
       V.row(x_step + z_step*MESH_RESOLUTION) << (v * scaling.matrix().transpose() * transform.transpose()).template head<3>();
-      
-      h[x_step + z_step*MESH_RESOLUTION] = &V.row(x_step + z_step*MESH_RESOLUTION)(1);
     }
   }
   
@@ -188,9 +185,7 @@ void Mesh<T>::solve(const Eigen::Matrix<T, Rows, Cols>& P)
   //gauss_seidel(res, 10);
   //std::cout << res << std::endl;
   
-  int cntr = 0;
-  for (T* hp : h)
-    *hp = res(cntr++);
+  V.col(1) = res;
 }
 
 template <typename T>

@@ -8,7 +8,7 @@
 #include "EqHelpers.hpp"
 
 // Number of vertices along one dimension
-#define MESH_RESOLUTION 15
+#define MESH_RESOLUTION 20
 // Scale factor. 1 makes the mesh the same size as the bb of the
 // pc given to align_to_point_cloud
 #define MESH_SCALING_FACTOR 2
@@ -35,7 +35,6 @@ private:
   JtzVector<T> Jtz;
   Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> V; // Vertices
   Eigen::MatrixXi F; // Face vertex indices
-  std::vector<T*> h; // Pointers to the y coord in vertices that are solved in the linear system
   Eigen::Matrix<T, 4, 4> transform; // Mesh location and orientation
 
   template <int HRows>
