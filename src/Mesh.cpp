@@ -182,11 +182,11 @@ void Mesh<T>::solve(const Eigen::Matrix<T, Rows, Cols>& P)
   //std::cout << JtJ.get_mat() << std::endl << std::endl;
   //std::cout << Jtz.get_vec() << std::endl << std::endl;
   
-  //Eigen::Matrix<T, Eigen::Dynamic, 1> res = JtJ.get_mat().colPivHouseholderQr().solve(Jtz.get_vec());
+  Eigen::Matrix<T, Eigen::Dynamic, 1> res = JtJ.get_mat().jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(Jtz.get_vec());
   //Eigen::Matrix<T, Eigen::Dynamic, 1> res = JtJ.get_mat().completeOrthogonalDecomposition().pseudoInverse()*Jtz.get_vec();
   //Eigen::Matrix<T, Eigen::Dynamic, 1> res;
   //gauss_seidel(res, 10);
-  std::cout << res << std::endl;
+  //std::cout << res << std::endl;
   
   int cntr = 0;
   for (T* hp : h)
