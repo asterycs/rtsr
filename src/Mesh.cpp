@@ -91,13 +91,16 @@ template <typename T>
 template <int Rows, int Cols>
 void Mesh<T>::align_to_point_cloud(const Eigen::Matrix<T, Rows, Cols>& P)
 {  
-  const Eigen::Matrix<T, 1, 3> bb_min = P.colwise().minCoeff();
-  const Eigen::Matrix<T, 1, 3> bb_max = P.colwise().maxCoeff();
-  Eigen::Matrix<T, 1, 3> bb_d = (bb_max - bb_min).cwiseAbs();
+  using TvecR3 = Eigen::Matrix<T, 1, 3>;
+  using TvecC3 = Eigen::Matrix<T, 3, 1>;
   
-  const Eigen::Transform<T, 3, Eigen::Affine> scaling(Eigen::Scaling(Eigen::Matrix<T, 3, 1>(bb_d(0)/(MESH_RESOLUTION-1), 0.,bb_d(2)/(MESH_RESOLUTION-1))));
+  const TvecR3 bb_min = P.colwise().minCoeff();
+  const TvecR3 bb_max = P.colwise().maxCoeff();
+  const TvecR3 bb_d = (bb_max - bb_min).cwiseAbs();
   
-  const Eigen::Matrix<T, 1, 3> P_centr = bb_min + 0.5*(bb_max - bb_min);
+  const Eigen::Transform<T, 3, Eigen::Affine> scaling(Eigen::Scaling(TvecC3(MESH_SCALING_FACTOR*bb_d(0)/(MESH_RESOLUTION-1), 0.,MESH_SCALING_FACTOR*bb_d(2)/(MESH_RESOLUTION-1))));
+  
+  const TvecR3 P_centr = bb_min + 0.5*(bb_max - bb_min);
   const Eigen::Transform<T, 3, Eigen::Affine> t(Eigen::Translation<T, 3>(P_centr - Eigen::Matrix<T, 1, 3>(0,0,0))); // Remove the zero vector if you dare ;)
   
   transform = t.matrix();
@@ -113,7 +116,7 @@ void Mesh<T>::align_to_point_cloud(const Eigen::Matrix<T, Rows, Cols>& P)
   {
     for (int x_step = 0; x_step < MESH_RESOLUTION; ++x_step)
     {
-      Eigen::Matrix<T, 1, 4> v; v << Eigen::Matrix<T, 1, 3>(x_step-(MESH_RESOLUTION-1)/2.f,1.f,z_step-(MESH_RESOLUTION-1)/2.f),1.f;
+      Eigen::Matrix<T, 1, 4> v; v << TvecR3(x_step-(MESH_RESOLUTION-1)/2.f,1.f,z_step-(MESH_RESOLUTION-1)/2.f),1.f;
       V.row(x_step + z_step*MESH_RESOLUTION) << (v * scaling.matrix().transpose() * transform.transpose()).template head<3>();
       
       h[x_step + z_step*MESH_RESOLUTION] = &V.row(x_step + z_step*MESH_RESOLUTION)(1);
@@ -150,10 +153,22 @@ void Mesh<T>::solve(const Eigen::Matrix<T, Rows, Cols>& P)
 {
   // Seems to be a bug in embree. tnear of a ray is not set corretly if vector is
   // along coordinate axis, needs slight offset.
-  /*Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> normals = Eigen::Matrix<T, 1, 3>(0.0001, 1., 0.0).replicate(P.rows(), 1);
+  Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> normals = Eigen::Matrix<T, 1, 3>(0.0001, 1., 0.0).replicate(P.rows(), 1);
   
   Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> bc = igl::embree::line_mesh_intersection(P, normals, V, F);
-      
+        
+  Eigen::Matrix<T, 1, 3> mean = P.colwise().mean();
+    
+  for (int i = 0; i < (MESH_RESOLUTION-1)*(MESH_RESOLUTION-1)*2; ++i)
+  {
+    JtJ.update_triangle(i, 0.34f, 0.33f);
+  }
+
+  for (int i = 0; i < (MESH_RESOLUTION-1)*(MESH_RESOLUTION-1)*2; ++i)
+  {
+    Jtz.update_triangle(i, 0.34f, 0.33f, mean(1));
+  }
+  
   for (int i = 0; i < bc.rows(); ++i)
   {
     const Eigen::Matrix<T, 1, 3>& row = bc.row(i);
@@ -162,55 +177,54 @@ void Mesh<T>::solve(const Eigen::Matrix<T, Rows, Cols>& P)
     
     JtJ.update_triangle(static_cast<int>(row(0)), row(1), row(2));
     Jtz.update_triangle(static_cast<int>(row(0)), row(1), row(2), P.row(i)(1));
-  }*/
-  
-  Eigen::Matrix<T, 1, 3> mean = P.colwise().mean();
-  
-  std::cout << mean(1) << std::endl << std::endl;
-  
-  for (int i = 0; i < (MESH_RESOLUTION-1)*(MESH_RESOLUTION-1)*2; ++i)
-  {
-    JtJ.update_triangle(i, 0.33f, 0.33f);
-    Jtz.update_triangle(i, 0.33f, 0.33f, mean(1));
   }
-      
-  std::cout << JtJ.get_mat() << std::endl << std::endl;
-  std::cout << Jtz.get_vec() << std::endl << std::endl;
+        
+  //std::cout << JtJ.get_mat() << std::endl << std::endl;
+  //std::cout << Jtz.get_vec() << std::endl << std::endl;
   
   //Eigen::Matrix<T, Eigen::Dynamic, 1> res = JtJ.get_mat().colPivHouseholderQr().solve(Jtz.get_vec());
   //Eigen::Matrix<T, Eigen::Dynamic, 1> res = JtJ.get_mat().completeOrthogonalDecomposition().pseudoInverse()*Jtz.get_vec();
-  //std::cout << res << std::endl;
+  //Eigen::Matrix<T, Eigen::Dynamic, 1> res;
+  //gauss_seidel(res, 10);
+  std::cout << res << std::endl;
   
-  //int cntr = 0;
-  //for (T* hp : h)
-  //  *hp = res(cntr++);
+  int cntr = 0;
+  for (T* hp : h)
+    *hp = res(cntr++);
 }
 
 template <typename T>
-template <int JtJRows, int JtJCols, int JtzRows>
-void Mesh<T>::gauss_seidel(const Eigen::Matrix<T, JtJRows, JtJCols>& JtJ, Eigen::Matrix<T, JtzRows, 1>& h, Eigen::Matrix<T, JtzRows, 1>& Jtz, int iterations)
-{    
-    for(int i = 0; i < iterations; i++)
+template <int HRows>
+void Mesh<T>::gauss_seidel(Eigen::Matrix<T, HRows, 1>& h, int iterations)
+{
+  auto& JtJ_mat = JtJ.get_mat();
+  auto& Jtz_vec = Jtz.get_vec();
+  
+  h.resize(MESH_RESOLUTION*MESH_RESOLUTION);
+  
+  for(int i = 0; i < iterations; i++)
+  {
+    for (int v = 0; v < h.rows(); v++)
     {
-        for (int v = 0; v < h.rows(); v++)
+      T xn = Jtz_vec(v);
+      for (int x = 0; x < JtJ_mat.rows(); x++)
+      {
+        for (int y = 0; y < JtJ_mat.rows(); y++)
         {
-            double xn = Jtz(v);
-            for (int x = 0; x < JtJ.rows(); x++)
-            {
-                for (int y = 0; y < JtJ.rows(); y++)
-                {
-                    xn -= h(x)*JtJ(x, y);
-                }
-            }
-            h(v) = xn / JtJ(v, v);
+          xn -= h(x)*JtJ_mat(x, y);
         }
+      }
+      h(v) = xn / JtJ_mat(v, v);
     }
+  }
 }
+
+
 // Explicit instantiation
 template class Mesh<double>;
 template void Mesh<double>::align_to_point_cloud(const Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>&);
 template void Mesh<double>::solve(const Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>&);
-template void Mesh<double>::gauss_seidel(const Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>& JtJ, Eigen::Matrix<double, Eigen::Dynamic, 1>& h, Eigen::Matrix<double, Eigen::Dynamic, 1>& Jtz, int iterations);
+template void Mesh<double>::gauss_seidel(Eigen::Matrix<double, Eigen::Dynamic, 1>&, int iterations);
 
 //template class Mesh<float>;
 //template void Mesh<float>::align_to_point_cloud(const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>&);

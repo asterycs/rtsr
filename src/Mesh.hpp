@@ -7,7 +7,11 @@
 
 #include "EqHelpers.hpp"
 
-#define MESH_RESOLUTION 3
+// Number of vertices along one dimension
+#define MESH_RESOLUTION 15
+// Scale factor. 1 makes the mesh the same size as the bb of the
+// pc given to align_to_point_cloud
+#define MESH_SCALING_FACTOR 2
 
 template <typename T>
 class Mesh
@@ -34,8 +38,8 @@ private:
   std::vector<T*> h; // Pointers to the y coord in vertices that are solved in the linear system
   Eigen::Matrix<T, 4, 4> transform; // Mesh location and orientation
 
-  template <int JtJRows, int JtJCols, int JtzRows>
-  void gauss_seidel(const Eigen::Matrix<T, JtJRows, JtJCols>& JtJ, Eigen::Matrix<T, JtzRows, 1>& h, Eigen::Matrix<T, JtzRows, 1>& Jtz, int iterations);
+  template <int HRows>
+  void gauss_seidel(Eigen::Matrix<T, HRows, 1>& h, int iterations);
 };
 
 #endif // MESH_HPP

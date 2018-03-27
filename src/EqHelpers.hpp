@@ -153,7 +153,6 @@ private:
   
   int mesh_width;
   Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> mat;
-  Eigen::Matrix<unsigned int, Eigen::Dynamic, Eigen::Dynamic> updates;
 };
 
 #endif //EQHELPERS_HPP
