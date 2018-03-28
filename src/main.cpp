@@ -18,7 +18,7 @@ Mesh<double> mesh;
 template <typename T>
 void generate_example_point_cloud(Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& P)
 {
-  const int size = 60;
+  const int size = 120;
   P.resize(size*size,3);
   
   for (int x = 0; x < size; ++x)
@@ -30,8 +30,8 @@ void generate_example_point_cloud(Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynami
     }
   }
   
-  const int b = 2;
-  const int s = 7;
+  const int b = 3;
+  const int s = 5;
   const int step = size / (b+1);
   int cntr = 0;
 
@@ -43,7 +43,7 @@ void generate_example_point_cloud(Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynami
       {
         for (int y = by-s; y < by+s; ++y)
         {
-          Eigen::Matrix<T, 1, 3> row(T(x), cntr * 4., T(y));
+          Eigen::Matrix<T, 1, 3> row(T(x), cntr * 1., T(y));
           P.row(x + y*size) = row;
         }
       }
