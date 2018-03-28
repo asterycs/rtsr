@@ -13,21 +13,53 @@
 #include <fstream>
 #include <sstream>
 
-DataSet* global_ds_ptr; // Dirty dirty...
+Mesh<double> mesh;
 
-bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int modifiers) {
-    
-  Eigen::MatrixXd points;
-  Eigen::Matrix4d world2cam;
+template <typename T>
+void generate_example_point_cloud(Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& P)
+{
+  const int size = 60;
+  P.resize(size*size,3);
   
-  if (!global_ds_ptr->get_next_point_cloud(points, world2cam))
+  for (int x = 0; x < size; ++x)
   {
-    std::cerr << "Couldn't read data" << std::endl;
-    return false;
+    for (int y = 0; y < size; ++y)
+    {
+      Eigen::Matrix<T, 1, 3> row(T(x), 4., T(y));
+      P.row(x + y*size) = row;
+    }
   }
+  
+  const int b = 2;
+  const int s = 7;
+  const int step = size / (b+1);
+  int cntr = 0;
 
-  viewer.data().add_points(points, Eigen::RowVector3d(0.f,0.7f,0.7f));
+  for (int bx = step; bx < size; bx += step)
+  {
+    for (int by = step; by < size; by += step)
+    {
+      for (int x = bx-s; x < bx+s; ++x)
+      {
+        for (int y = by-s; y < by+s; ++y)
+        {
+          Eigen::Matrix<T, 1, 3> row(T(x), cntr * 4., T(y));
+          P.row(x + y*size) = row;
+        }
+      }
+      
+      ++cntr;
+    }
+  }
+}
 
+bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int modifiers)
+{
+  mesh.iterate();
+  viewer.data().set_mesh(mesh.vertices(), mesh.faces());
+  viewer.data().compute_normals();
+  viewer.data().invert_normals = true;
+  
   return true;
 }
 
@@ -35,42 +67,28 @@ int main(int argc, char *argv[]) {
     // Read points and normals
     // igl::readOFF(argv[1],P,F,N);
     
-    if (argc != 2)
+    if (argc != 1)
     {
-      std::cout << "Usage: $0 <folder>" << std::endl;
+      std::cout << "Usage: $0" << std::endl;
       return EXIT_SUCCESS;
     }
-
-    std::string folder(argv[1]);
     
-    DataSet ds(folder);
+    Eigen::MatrixXd P;
+    generate_example_point_cloud(P);
     
-    /* GLFW has a mechanism for associating a "user" pointer with a GLFWWindow,
-     * I tried it with viewer.window but it gets reset somehow...
-     * This is awful but works.
-     */
-    global_ds_ptr = &ds;
-    
-    Eigen::MatrixXd points;
-    Eigen::Matrix4d world2cam;
-    if (!ds.get_next_point_cloud(points, world2cam))
-    {
-      std::cerr << "Couldn't read data" << std::endl;
-      return EXIT_FAILURE;
-    }
-    
-    Mesh<double> mesh;
-    mesh.align_to_point_cloud(points); // Resets the mesh everytime it is called
-    mesh.solve(points); // Use this to solve for the height field
+    mesh.align_to_point_cloud(P); // Resets the mesh everytime it is called
+    mesh.set_target_point_cloud(P); // Use this to solve for the height field
     
     igl::opengl::glfw::Viewer viewer;    
     viewer.callback_key_down = callback_key_down;
     
     viewer.data().clear();
-    viewer.core.align_camera_center(points);
+    viewer.core.align_camera_center(P);
     viewer.data().point_size = 5;
-    viewer.data().add_points(points, Eigen::RowVector3d(0.f,0.7f,0.7f));
+    viewer.data().add_points(P, Eigen::RowVector3d(0.f,0.7f,0.7f));
     viewer.data().set_mesh(mesh.vertices(), mesh.faces());
-
+    viewer.data().compute_normals();
+    viewer.data().invert_normals = true;
+    
     viewer.launch();
 }

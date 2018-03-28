@@ -12,7 +12,7 @@ public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   JtzVector() = default;
   JtzVector(const int mesh_width) : mesh_width(mesh_width), vec(Eigen::Matrix<T, Eigen::Dynamic, 1>::Zero(mesh_width*mesh_width)) {};
-  const Eigen::Matrix<T, Eigen::Dynamic, 1>& get_vec()
+  const Eigen::Matrix<T, Eigen::Dynamic, 1>& get_vec() const
   {
     return this->vec;
   }
@@ -74,7 +74,7 @@ public:
     this->mesh_width = mesh_width;
   }
   
-  const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& get_mat()
+  const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& get_mat() const
   {
     return this->mat;
   }
