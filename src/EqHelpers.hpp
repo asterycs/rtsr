@@ -63,14 +63,7 @@ public:
   JtJMatrix(const int mesh_width) : mesh_width(mesh_width), mat(Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>::Zero(mesh_width*mesh_width, mesh_width*mesh_width)) {};
   void resize(const int mesh_width)
   {
-    const typename Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>::Index old_r = mat.rows();
-    const typename Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>::Index old_c = mat.cols();
-    Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> newm = Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>::Zero(mesh_width*mesh_width, mesh_width*mesh_width);
-    
-    if (old_r > 0 && old_c > 0)
-      newm.block(0,0,old_r,old_c) = mat; 
-      
-    mat = newm;
+    mat = Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>::Zero(mesh_width*mesh_width, mesh_width*mesh_width);
     this->mesh_width = mesh_width;
   }
   
@@ -104,13 +97,13 @@ public:
       update(vidx+1,vidx+1,                                   b*b);
       update(vidx+mesh_width,vidx+mesh_width,     (1-a-b)*(1-a-b));
 
-      if (vxidx < mesh_width-1)
+      assert(vxidx < mesh_width-1);
         update(vidx,vidx+1,                                   a*b);
         
-      if (vxidx < mesh_width-1 && vyidx < mesh_width-1)
+      assert(vxidx < mesh_width-1 && vyidx < mesh_width-1);
         update(vidx+1,vidx+mesh_width,                       (1-a-b)*b);
 
-      if (vyidx < mesh_width-1)
+      assert(vyidx < mesh_width-1);
         update(vidx,vidx+mesh_width,                         (1-a-b)*a);
     }else
     // ti % 2 == 1
@@ -129,13 +122,13 @@ public:
       update(vidx-1,vidx-1,                               b*b);
       update(vidx-mesh_width,vidx-mesh_width, (1-a-b)*(1-a-b));
 
-      if (vxidx > 0)
+      assert(vxidx > 0);
         update(vidx,vidx-1,                        a*b);
         
-      if (vxidx > 0 && vyidx > 0)
+      assert(vxidx > 0 && vyidx > 0);
         update(vidx-mesh_width,vidx,       (1-a-b)*a);
 
-      if (vyidx > 0)
+      assert(vyidx > 0);
         update(vidx-mesh_width,vidx-1,       (1-a-b)*b); 
     }
   }
@@ -149,6 +142,161 @@ private:
     if (r != c)
       if (c < mat.rows() && r < mat.cols())
         mat(c,r) += val;
+  }
+  
+  int mesh_width;
+  Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> mat;
+};
+
+template <typename T>
+class JtJMatrixGrid
+{  
+public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+  JtJMatrixGrid() = default;
+  JtJMatrixGrid(const int mesh_width) : mesh_width(mesh_width), mat(Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>::Zero((2*mesh_width-1)*(2*mesh_width-1), (2*mesh_width-1)*(2*mesh_width-1))) {};
+  void resize(const int mesh_width)
+  {     
+    mat = Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>::Zero((2*mesh_width-1), (2*mesh_width-1));
+    this->mesh_width = mesh_width;
+  }
+  
+  const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& get_mat() const
+  {
+    return this->mat;
+  }
+  
+  void get_matrix_values_for_vertex(const int vi, std::array<T, 6>& vals, std::array<int, 6>& ids, T& a) const
+  {
+    const int vxi = vi % mesh_width;
+    const int vyi = vi / mesh_width;
+    
+    const int x = vxi * 2;
+    const int y = vyi * 2;
+        
+    if (x - 1 >= 0)
+    {
+      vals[0] = mat(x - 1, y);
+      ids[0] = vi - 1;
+    }else
+    {
+      vals[0] = 0.0;
+      ids[0] = -1;
+    }
+
+    if (y - 1 >= 0)
+    {
+      vals[1] = mat(x, y - 1);
+      ids[1] = vi - mesh_width;
+    }else
+    {
+      vals[1] = 0.0;
+      ids[1] = -1;
+    }
+
+    if (x + 1 < mesh_width && y - 1 >= 0)
+    {
+      vals[2] = mat(x+1, y-1);
+      ids[2] = vi - mesh_width + 1;
+    }else
+    {
+      vals[2] = 0.0;
+      ids[2] = -1;      
+    }
+
+    if (x + 1 < mesh_width)
+    {
+      vals[3] = mat(x+1, y);
+      ids[3] = vi + 1;
+    }else
+    {
+      vals[3] = 0.0;
+      ids[3] = -1;
+    }
+    
+    if (y +1 < mesh_width)
+    {
+      vals[4] = mat(x, y+1);
+      ids[4] = vi + mesh_width;
+    }else
+    {
+      vals[4] = 0.0;
+      ids[4] = -1;      
+    }
+    
+    if (x - 1 >= 0 && y + 1 < mesh_width)
+    {
+      vals[5] = mat(x-1, y+1);
+      ids[5] = vi + mesh_width - 1;     
+    }else
+    {
+       vals[5] = 0.0;
+      ids[5] = -1;         
+    }
+
+     a = mat(x, y);
+  }
+  
+  /*
+   void grow(const enum Direction d, steps) ...
+    */
+  
+  // ti indexed as:
+  //   __ __ __
+  //  |0/|2/|4/|...
+  //  |/1|/3|/5|
+  //  |...
+  void update_triangle(const int ti, const T a, const T b)
+  {
+    assert(ti < (mesh_width-1)*(mesh_width-1)*2);
+        
+    // Triangle is here (*):
+    //  __ __ 
+    // |*/| /..
+    // |‾‾|‾‾
+    // ...
+    if (ti % 2 == 0)
+    {     
+      const int vxidx = (ti % (2*(mesh_width - 1))) / 2; // Vertex index on the mesh
+      const int vyidx =  ti / (2*(mesh_width - 1));
+
+      const int vidx = vxidx*2; // Index in the grid matrix, Figure 5(c) in the paper
+      const int vidy = vyidx*2;
+      
+      update(vidx,vidy,                                                                     a*a);
+      update(vidx+2,vidy,                                                                b*b);
+      update(vidx,vidy+2,                                               (1-a-b)*(1-a-b));
+      update(vidx+1,vidy,                                                                 a*b);
+      update(vidx+1,vidy+1,                                                   (1-a-b)*b);
+      update(vidx,vidy+1,                                                        (1-a-b)*a);
+    }else
+    // ti % 2 == 1
+    // Triangle is here (*):
+    //  __ __ 
+    // |/*| /..
+    // |‾‾|‾‾
+    // ...
+    {
+      const int vxidx = (ti % (2*(mesh_width - 1))) / 2 + 1;
+      const int vyidx =  ti / (2*(mesh_width - 1)) + 1;
+
+      const int vidx = vxidx*2;
+      const int vidy = vyidx*2;
+      
+      update(vidx,vidy,                                   a*a);
+      update(vidx-2,vidy,                               b*b);
+      update(vidx,vidy-2,              (1-a-b)*(1-a-b));
+      update(vidx-1,vidy,                                a*b);
+      update(vidx,vidy-1,                       (1-a-b)*a);
+      update(vidx-1,vidy-1,                   (1-a-b)*b); 
+    }
+  }
+  
+private:
+  void update(const int r, const int c, const T val)
+  {
+    if (r < mat.rows() && c < mat.cols())
+      mat(r,c) += val;
   }
   
   int mesh_width;
