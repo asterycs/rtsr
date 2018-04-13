@@ -4,6 +4,7 @@
 #include <Eigen/Geometry>
 #include <cassert>
 #include <iostream>
+#include <array>
 
 template <typename T>
 class JtzVector
