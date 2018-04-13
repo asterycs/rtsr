@@ -55,7 +55,7 @@ private:
 };
 
 template <typename T>
-class JtJMatrix // Could be made into a Eigen::SparseMatrix later
+class [[deprecated]] JtJMatrix // Could be made into a Eigen::SparseMatrix later
 {  
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -173,6 +173,8 @@ public:
     
     const int x = vxi * 2;
     const int y = vyi * 2;
+    
+    // Clockwise ordering
         
     if (vxi - 1 >= 0)
     {
@@ -181,7 +183,7 @@ public:
     }else
     {
       vals[0] = 0.0;
-      ids[0] = -1;
+      ids[0] = 0;
     }
 
     if (vyi - 1 >= 0)
@@ -191,7 +193,7 @@ public:
     }else
     {
       vals[1] = 0.0;
-      ids[1] = -1;
+      ids[1] = 0;
     }
 
     if (vxi + 1 < mesh_width && vyi - 1 >= 0)
@@ -201,7 +203,7 @@ public:
     }else
     {
       vals[2] = 0.0;
-      ids[2] = -1;      
+      ids[2] = 0;      
     }
 
     if (vxi + 1 < mesh_width)
@@ -211,7 +213,7 @@ public:
     }else
     {
       vals[3] = 0.0;
-      ids[3] = -1;
+      ids[3] = 0;
     }
     
     if (vyi +1 < mesh_width)
@@ -221,7 +223,7 @@ public:
     }else
     {
       vals[4] = 0.0;
-      ids[4] = -1;      
+      ids[4] = 0;      
     }
     
     if (vxi - 1 >= 0 && vyi + 1 < mesh_width)
@@ -231,7 +233,7 @@ public:
     }else
     {
       vals[5] = 0.0;
-      ids[5] = -1;         
+      ids[5] = 0;         
     }
 
      a = mat(x, y);
@@ -263,12 +265,12 @@ public:
       const int vidx = vxidx*2; // Index in the grid matrix, Figure 5(c) in the paper
       const int vidy = vyidx*2;
       
-      update(vidx,vidy,                                                                     a*a);
-      update(vidx+2,vidy,                                                                b*b);
-      update(vidx,vidy+2,                                               (1-a-b)*(1-a-b));
-      update(vidx+1,vidy,                                                                 a*b);
-      update(vidx+1,vidy+1,                                                   (1-a-b)*b);
-      update(vidx,vidy+1,                                                        (1-a-b)*a);
+      update_if_present(vidx,vidy,                                                                     a*a);
+      update_if_present(vidx+2,vidy,                                                                b*b);
+      update_if_present(vidx,vidy+2,                                               (1-a-b)*(1-a-b));
+      update_if_present(vidx+1,vidy,                                                                 a*b);
+      update_if_present(vidx+1,vidy+1,                                                   (1-a-b)*b);
+      update_if_present(vidx,vidy+1,                                                        (1-a-b)*a);
     }else
     // ti % 2 == 1
     // Triangle is here (*):
@@ -283,17 +285,17 @@ public:
       const int vidx = vxidx*2;
       const int vidy = vyidx*2;
       
-      update(vidx,vidy,                                   a*a);
-      update(vidx-2,vidy,                               b*b);
-      update(vidx,vidy-2,              (1-a-b)*(1-a-b));
-      update(vidx-1,vidy,                                a*b);
-      update(vidx,vidy-1,                       (1-a-b)*a);
-      update(vidx-1,vidy-1,                   (1-a-b)*b); 
+      update_if_present(vidx,vidy,                                   a*a);
+      update_if_present(vidx-2,vidy,                               b*b);
+      update_if_present(vidx,vidy-2,              (1-a-b)*(1-a-b));
+      update_if_present(vidx-1,vidy,                                a*b);
+      update_if_present(vidx,vidy-1,                       (1-a-b)*a);
+      update_if_present(vidx-1,vidy-1,                   (1-a-b)*b); 
     }
   }
   
 private:
-  void update(const int r, const int c, const T val)
+  void update_if_present(const int r, const int c, const T val)
   {
     if (r < mat.rows() && c < mat.cols())
       mat(r,c) += val;

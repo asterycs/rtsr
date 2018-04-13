@@ -119,7 +119,7 @@ void Mesh<T>::align_to_point_cloud(const Eigen::Matrix<T, Rows, Cols>& P)
   {
     for (int x_step = 0; x_step < MESH_RESOLUTION; ++x_step)
     {
-      Eigen::Matrix<T, 1, 4> v; v << TvecR3(x_step-(MESH_RESOLUTION-1)/2.f,1.f,z_step-(MESH_RESOLUTION-1)/2.f),1.f;
+      Eigen::Matrix<T, 1, 4> v; v << TvecR3(x_step-T(MESH_RESOLUTION-1)/2.f,1.f, z_step-T(MESH_RESOLUTION-1)/2.f),1.f;
       V.row(x_step + z_step*MESH_RESOLUTION) << (v * scaling.matrix().transpose() * transform.transpose()).template head<3>();
     }
   }
@@ -209,8 +209,9 @@ void Mesh<T>::gauss_seidel(Eigen::Matrix<T, HRows, 1>& h, int iterations) const
             
       for (int j = 0; j < 6; ++j)
       {
-        if (ids[j] == -1)
-          continue;
+         // vals[i] is zero when out of bounds, no need for boundary check
+        //if (ids[j] == -1)
+        //  continue;
           
         acc += vals[j] * h(ids[j]);
       }

@@ -53,7 +53,7 @@ void generate_example_point_cloud(Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynami
   }
 }
 
-bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int modifiers)
+bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char /*key*/, int /*modifier*/)
 {
   mesh.iterate();
   viewer.data().set_mesh(mesh.vertices(), mesh.faces());
@@ -63,7 +63,7 @@ bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int
   return true;
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char **/*argv*/) {
     // Read points and normals
     // igl::readOFF(argv[1],P,F,N);
     
