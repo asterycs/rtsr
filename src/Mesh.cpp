@@ -111,7 +111,6 @@ void Mesh<T>::align_to_point_cloud(const Eigen::Matrix<T, Rows, Cols>& P)
   V.resize(MESH_RESOLUTION*MESH_RESOLUTION, 3);
   F.resize((MESH_RESOLUTION-1)*(MESH_RESOLUTION-1)*2, 3);
   JtJ.resize(MESH_RESOLUTION);
-  JtJ_old.resize(MESH_RESOLUTION);
   Jtz.resize(MESH_RESOLUTION);
   h = Eigen::Matrix<T, Eigen::Dynamic, 1>::Zero(MESH_RESOLUTION*MESH_RESOLUTION);
 
@@ -139,9 +138,6 @@ void Mesh<T>::align_to_point_cloud(const Eigen::Matrix<T, Rows, Cols>& P)
   for (int i = 0; i < (MESH_RESOLUTION-1)*(MESH_RESOLUTION-1)*2; ++i)
   {
     JtJ.update_triangle(i, 0.34f, 0.33f);
-    JtJ_old.update_triangle(i, 0.34f, 0.33f);
-    
-    //std::cout << JtJ_old.get_mat() << std::endl << JtJ.get_mat() << std::endl << std::endl;;
   }
 
   for (int i = 0; i < (MESH_RESOLUTION-1)*(MESH_RESOLUTION-1)*2; ++i)
@@ -179,7 +175,6 @@ void Mesh<T>::set_target_point_cloud(const Eigen::Matrix<T, Rows, Cols>& P)
       continue;
     
     JtJ.update_triangle(static_cast<int>(row(0)), row(1), row(2));
-    JtJ_old.update_triangle(static_cast<int>(row(0)), row(1), row(2));
     
     Jtz.update_triangle(static_cast<int>(row(0)), row(1), row(2), P.row(i)(1));
   }
@@ -220,14 +215,12 @@ void Mesh<T>::gauss_seidel(Eigen::Matrix<T, HRows, 1>& h, int iterations) const
         acc += vals[j] * h(ids[j]);
       }
       
-      
       xn -= acc;
       
       h(i) = xn/a;
     }
   }
 }
-
 
 // Explicit instantiation
 template class Mesh<double>;

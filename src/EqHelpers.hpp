@@ -174,7 +174,7 @@ public:
     const int x = vxi * 2;
     const int y = vyi * 2;
         
-    if (x - 1 >= 0)
+    if (vxi - 1 >= 0)
     {
       vals[0] = mat(x - 1, y);
       ids[0] = vi - 1;
@@ -184,7 +184,7 @@ public:
       ids[0] = -1;
     }
 
-    if (y - 1 >= 0)
+    if (vyi - 1 >= 0)
     {
       vals[1] = mat(x, y - 1);
       ids[1] = vi - mesh_width;
@@ -194,7 +194,7 @@ public:
       ids[1] = -1;
     }
 
-    if (x + 1 < mesh_width && y - 1 >= 0)
+    if (vxi + 1 < mesh_width && vyi - 1 >= 0)
     {
       vals[2] = mat(x+1, y-1);
       ids[2] = vi - mesh_width + 1;
@@ -204,7 +204,7 @@ public:
       ids[2] = -1;      
     }
 
-    if (x + 1 < mesh_width)
+    if (vxi + 1 < mesh_width)
     {
       vals[3] = mat(x+1, y);
       ids[3] = vi + 1;
@@ -214,7 +214,7 @@ public:
       ids[3] = -1;
     }
     
-    if (y +1 < mesh_width)
+    if (vyi +1 < mesh_width)
     {
       vals[4] = mat(x, y+1);
       ids[4] = vi + mesh_width;
@@ -224,13 +224,13 @@ public:
       ids[4] = -1;      
     }
     
-    if (x - 1 >= 0 && y + 1 < mesh_width)
+    if (vxi - 1 >= 0 && vyi + 1 < mesh_width)
     {
       vals[5] = mat(x-1, y+1);
       ids[5] = vi + mesh_width - 1;     
     }else
     {
-       vals[5] = 0.0;
+      vals[5] = 0.0;
       ids[5] = -1;         
     }
 
