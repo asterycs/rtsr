@@ -16,6 +16,12 @@ cmake ../
 make
 ```
 
+13.4
+Demo with two point clouds for midterm presentation.
+
+13.4
+JtJ matrix is now represented as a dense grid, just like in the paper. See class "JtJMatrixGrid" in EqHelpers.hpp
+
 28.3.2018
 Gauss-Seidel works. Current point cloud is syntetically generated for clarity.
 
