@@ -1,0 +1,1 @@
+./associate.py depth.txt rgb.txt | awk -F" " '{print $4 " " $2 " ply/" $1 ".ply"}' | parallel --colsep ' ' ./generate_pointcloud.py
