@@ -89,13 +89,11 @@ bool DataSet::get_next_point_cloud(Eigen::MatrixXd& points, Eigen::Matrix4d& wor
  
   if (!get_next_camera(world2camera, time_stamp_d))
     return false;
-    
-  const Eigen::Matrix4d world2camera_inv = world2camera.inverse();
   
   if (static_cast<unsigned int>(next_file_idx) < depth_files.size())
   {    
     int width, height, bpp;
-    unsigned char* png = stbi_load(depth_files[next_file_idx].c_str(), &width, &height, &bpp, 1);
+    unsigned short* png = stbi_load_16(depth_files[next_file_idx].c_str(), &width, &height, &bpp, 1);
     
     points.resize(width*height, 3);
     
@@ -115,7 +113,7 @@ bool DataSet::get_next_point_cloud(Eigen::MatrixXd& points, Eigen::Matrix4d& wor
         pixel_to_camera_coord(x, y, png[(x+y*width)/bpp], camCoord);
         
         Eigen::RowVector4d camera_point; camera_point << camCoord.transpose(),1.0;
-        Eigen::RowVector4d world_point = world2camera_inv * camera_point.transpose();
+        Eigen::RowVector4d world_point = world2camera * camera_point.transpose();
         
 #pragma omp critical
         {
@@ -174,9 +172,9 @@ bool DataSet::get_next_camera(Eigen::Matrix4d& cam, const double timestamp)
     double currentDT = std::abs(current.time - timestamp);
     if (currentDT > previousDT) // Previous was closer
     {
-      const double ti = previousDT / currentDT;
-      const Eigen::Quaterniond qa(previous.qi,previous.qj,previous.qk,previous.ql),
-                               qb(current.qi,current.qj,current.qk,current.ql);
+      const double ti = (timestamp - previous.time) / (current.time - previous.time);
+      const Eigen::Quaterniond qa(previous.ql,previous.qi,previous.qj,previous.qk),
+                               qb(current.ql,current.qi,current.qj,current.qk);
       const Eigen::Quaterniond q_interp = qa.slerp(ti, qb);
       
       const Eigen::Vector3d ta(previous.tx, previous.ty, previous.tz),
@@ -186,7 +184,7 @@ bool DataSet::get_next_camera(Eigen::Matrix4d& cam, const double timestamp)
       const Eigen::Affine3d t(t_interp);
       const Eigen::Affine3d r(q_interp);
       
-      cam << t.matrix() * r.matrix();
+      cam << t.matrix() * r.matrix().inverse();
       abort = true;
     }else{
       previousDT = currentDT;
@@ -196,5 +194,3 @@ bool DataSet::get_next_camera(Eigen::Matrix4d& cam, const double timestamp)
     
   return true;
 }
-
-
