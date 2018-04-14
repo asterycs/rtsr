@@ -118,7 +118,7 @@ bool DataSet::get_next_point_cloud(Eigen::MatrixXd& points, Eigen::Matrix4d& t_c
         
 #pragma omp critical
         {
-          points.row(rowcntr) << world_point.head<3>();
+          points.row(rowcntr) << world_point[0], world_point[2], world_point[1];
           ++rowcntr;
         }
       }
