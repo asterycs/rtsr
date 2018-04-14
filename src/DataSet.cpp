@@ -63,7 +63,7 @@ std::string trim_left(const std::string& str, const char* t = " \t\n\r\f\v")
 
 DataSet::DataSet(const std::string& folder) : next_file_idx(0), camera_ref_file_name(folder+"groundtruth.txt")
 {
-  boost::filesystem::directory_iterator depth_it(folder + "/depth/");
+  boost::filesystem::directory_iterator depth_it(folder + "depth/");
   
   for (auto& it : depth_it)
     depth_files.push_back(it.path().string());
@@ -79,7 +79,7 @@ DataSet::~DataSet()
 }
 
 
-bool DataSet::get_next_point_cloud(Eigen::MatrixXd& points, Eigen::Matrix4d& world2camera)
+bool DataSet::get_next_point_cloud(Eigen::MatrixXd& points, Eigen::Matrix4d& t_camera)
 {
   if (!operational)
     return false;
@@ -87,7 +87,7 @@ bool DataSet::get_next_point_cloud(Eigen::MatrixXd& points, Eigen::Matrix4d& wor
   std::string time_stamp = strip_file_suffix(get_file_name(depth_files[next_file_idx]));
   double time_stamp_d = std::stod(time_stamp);
  
-  if (!get_next_camera(world2camera, time_stamp_d))
+  if (!get_next_camera(t_camera, time_stamp_d))
     return false;
   
   if (static_cast<unsigned int>(next_file_idx) < depth_files.size())
@@ -112,8 +112,9 @@ bool DataSet::get_next_point_cloud(Eigen::MatrixXd& points, Eigen::Matrix4d& wor
         Eigen::Vector3d camCoord;
         pixel_to_camera_coord(x, y, png[(x+y*width)/bpp], camCoord);
         
-        Eigen::RowVector4d camera_point; camera_point << camCoord.transpose(),1.0;
-        Eigen::RowVector4d world_point = world2camera * camera_point.transpose();
+        Eigen::Vector4d camera_point; camera_point << camCoord,1.0;
+        camera_point = t_camera * camera_point;
+        Eigen::RowVector4d world_point = camera_point.transpose();
         
 #pragma omp critical
         {
@@ -184,7 +185,7 @@ bool DataSet::get_next_camera(Eigen::Matrix4d& cam, const double timestamp)
       const Eigen::Affine3d t(t_interp);
       const Eigen::Affine3d r(q_interp);
       
-      cam << t.matrix() * r.matrix().inverse();
+      cam << t.matrix() * r.matrix();
       abort = true;
     }else{
       previousDT = currentDT;

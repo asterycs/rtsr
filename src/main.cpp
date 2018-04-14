@@ -18,6 +18,7 @@
 
 Mesh<double> mesh;
 Eigen::MatrixXd P, P1, P2;
+DataSet *ds;
 
 template <typename T>
 void split_point_cloud(const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& P, Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& P1, Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& P2, const Eigen::Matrix<int, Eigen::Dynamic, 1>& id1, Eigen::Matrix<int, Eigen::Dynamic, 1>& id2)
@@ -115,29 +116,43 @@ bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int
   if (key == '2')
   {
     viewer.data().clear();
-    mesh.set_target_point_cloud(P2);
-    viewer.data().add_points(P2, Eigen::RowVector3d(0.f,0.7f,0.7f));
-    viewer.data().set_mesh(mesh.vertices(), mesh.faces());
-    viewer.data().compute_normals();
-    viewer.data().invert_normals = true;
+    if (ds) {
+      Eigen::MatrixXd P;
+      Eigen::Matrix4d C;
+      ds->get_next_point_cloud(P, C);
+      viewer.data().add_points(P, Eigen::RowVector3d(0.7f,0.f,0.7f));
+    } else {
+      mesh.set_target_point_cloud(P2);
+      viewer.data().add_points(P2, Eigen::RowVector3d(0.f,0.7f,0.7f));
+      viewer.data().set_mesh(mesh.vertices(), mesh.faces());
+      viewer.data().compute_normals();
+      viewer.data().invert_normals = true;
+    }
+    
   }
   
   return true;
 }
 
-int main(int argc, char **/*argv*/) {
+int main(int argc, char* argv[]) {
     // Read points and normals
     // igl::readOFF(argv[1],P,F,N);
     
-    if (argc != 1)
+    if (argc > 2)
     {
       std::cout << "Usage: $0" << std::endl;
       return EXIT_SUCCESS;
+    } else if (argc > 1) {
+      std::string folder(argv[1]);
+      ds = new DataSet(folder);
+      Eigen::Matrix4d C;
+      ds->get_next_point_cloud(P, C);
+      P1 = P;
+    } else {
+      Eigen::VectorXi id1, id2;
+      generate_example_point_cloud2(P, id1, id2);
+      split_point_cloud(P, P1, P2, id1, id2);
     }
-    
-    Eigen::VectorXi id1, id2;
-    generate_example_point_cloud2(P, id1, id2);
-    split_point_cloud(P, P1, P2, id1, id2);
     
     mesh.align_to_point_cloud(P); // Resets the mesh everytime it is called
     mesh.set_target_point_cloud(P1);
