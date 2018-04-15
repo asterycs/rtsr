@@ -115,13 +115,17 @@ bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int
   
   if (key == '2')
   {
+    
+    Eigen::MatrixXd C(1, 3);
+    C << 0.f,0.7f,0.7f;
+    
     if (ds) {
-      Eigen::Matrix4d C;
-      ds->get_next_point_cloud(P2, C);
+      Eigen::Matrix4d t_camera;
+      ds->get_next_point_cloud(P2, C, t_camera);
     }
     viewer.data().clear();
     mesh.set_target_point_cloud(P2);
-    viewer.data().add_points(P2, Eigen::RowVector3d(0.f,0.7f,0.7f));
+    viewer.data().add_points(P2, C);
     viewer.data().set_mesh(mesh.vertices(), mesh.faces());
     viewer.data().compute_normals();
     viewer.data().invert_normals = true;
@@ -135,6 +139,9 @@ int main(int argc, char* argv[]) {
     // Read points and normals
     // igl::readOFF(argv[1],P,F,N);
     
+    Eigen::MatrixXd C(1, 3);
+    C << 0.f,0.7f,0.7f;
+    
     if (argc > 2)
     {
       std::cout << "Usage: $0" << std::endl;
@@ -142,8 +149,8 @@ int main(int argc, char* argv[]) {
     } else if (argc > 1) {
       std::string folder(argv[1]);
       ds = new DataSet(folder);
-      Eigen::Matrix4d C;
-      ds->get_next_point_cloud(P, C);
+      Eigen::Matrix4d t_camera;
+      ds->get_next_point_cloud(P, C, t_camera);
       P1 = P;
     } else {
       Eigen::VectorXi id1, id2;
@@ -160,7 +167,7 @@ int main(int argc, char* argv[]) {
     viewer.data().clear();
     viewer.core.align_camera_center(P);
     viewer.data().point_size = 5;
-    viewer.data().add_points(P1, Eigen::RowVector3d(0.f,0.7f,0.7f));
+    viewer.data().add_points(P1, C);
     viewer.data().set_mesh(mesh.vertices(), mesh.faces());
     viewer.data().compute_normals();
     viewer.data().invert_normals = true;

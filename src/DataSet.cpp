@@ -61,7 +61,7 @@ std::string trim_left(const std::string& str, const char* t = " \t\n\r\f\v")
   return res;
 }
 
-DataSet::DataSet(const std::string& folder) : next_file_idx(0), camera_ref_file_name(folder+"groundtruth.txt")
+DataSet::DataSet(const std::string& folder) : next_file_idx(0), folder_path(folder), camera_ref_file_name(folder+"groundtruth.txt"), rgb_ref_file_name(folder+"rgb.txt")
 {
   boost::filesystem::directory_iterator depth_it(folder + "depth/");
   
@@ -79,7 +79,7 @@ DataSet::~DataSet()
 }
 
 
-bool DataSet::get_next_point_cloud(Eigen::MatrixXd& points, Eigen::Matrix4d& t_camera)
+bool DataSet::get_next_point_cloud(Eigen::MatrixXd& points, Eigen::MatrixXd &colors, Eigen::Matrix4d& t_camera)
 {
   if (!operational)
     return false;
@@ -89,6 +89,13 @@ bool DataSet::get_next_point_cloud(Eigen::MatrixXd& points, Eigen::Matrix4d& t_c
  
   if (!get_next_camera(t_camera, time_stamp_d))
     return false;
+    
+  const char *rgb_filename = get_next_rgb(time_stamp_d);
+  if (!rgb_filename)
+    return false;
+  
+  int rgb_width, rgb_height, rgb_bpp;  
+  unsigned char* rgb = stbi_load((folder_path + rgb_filename).c_str(), &rgb_width, &rgb_height, &rgb_bpp, 3);
   
   if (static_cast<unsigned int>(next_file_idx) < depth_files.size())
   {    
@@ -96,6 +103,7 @@ bool DataSet::get_next_point_cloud(Eigen::MatrixXd& points, Eigen::Matrix4d& t_c
     unsigned short* png = stbi_load_16(depth_files[next_file_idx].c_str(), &width, &height, &bpp, 1);
     
     points.resize(width*height, 3);
+    colors.resize(width*height, 3);
     
     int rowcntr = 0;
 #pragma omp parallel for
@@ -115,10 +123,12 @@ bool DataSet::get_next_point_cloud(Eigen::MatrixXd& points, Eigen::Matrix4d& t_c
         Eigen::Vector4d camera_point; camera_point << camCoord,1.0;
         camera_point = t_camera * camera_point;
         Eigen::RowVector4d world_point = camera_point.transpose();
+        unsigned char* color = rgb + (x+y*rgb_width)*rgb_bpp;
         
 #pragma omp critical
         {
           points.row(rowcntr) << world_point[0], world_point[2], world_point[1];
+          colors.row(rowcntr) << (float)color[0]/255, (float)color[1]/255, (float)color[2]/255;
           ++rowcntr;
         }
       }
@@ -126,6 +136,7 @@ bool DataSet::get_next_point_cloud(Eigen::MatrixXd& points, Eigen::Matrix4d& t_c
     
     points.conservativeResize(rowcntr, Eigen::NoChange);
     stbi_image_free(png);
+    stbi_image_free(rgb);
     next_file_idx++;
   }
   
@@ -194,4 +205,40 @@ bool DataSet::get_next_camera(Eigen::Matrix4d& cam, const double timestamp)
   }
     
   return true;
+}
+
+const char* DataSet::get_next_rgb(const double timestamp)
+{
+  std::fstream camera_ref_file(rgb_ref_file_name);
+  double previousDT = std::numeric_limits<double>::max();
+  std::string previous_filename;
+  
+  std::string line;
+  while (std::getline(camera_ref_file >> std::ws, line) && !line.empty())
+  {
+    if (trim_left(line)[0] == '#')
+      continue;
+    
+    std::stringstream ss(line);
+    std::vector<std::string> result;
+    while( ss.good() )
+    {
+        std::string substr;
+        std::getline( ss, substr, ' ' );
+        result.push_back( substr );
+    }
+    
+    double t(atof(result[0].c_str()));
+    std::string filename(result[1]);
+    
+    double currentDT = std::abs(t - timestamp);
+    if (currentDT > previousDT) // Previous was closer
+    {
+      return previous_filename.c_str();
+    }
+    previous_filename = filename;
+    previousDT = currentDT;
+  }
+  
+  return nullptr;
 }
