@@ -32,7 +32,6 @@ public:
   const Eigen::MatrixXi& faces();
   
 private:
-  Eigen::Matrix<T, Eigen::Dynamic, 1> h;  
   JtJMatrixGrid<T> JtJ;
   JtzVector<T> Jtz;
   
@@ -40,8 +39,7 @@ private:
   Eigen::MatrixXi F; // Face vertex indices
   Eigen::Matrix<T, 4, 4> transform; // Mesh location and orientation
 
-  template <int HRows>
-  void gauss_seidel(Eigen::Matrix<T, HRows, 1>& h, int iterations) const;
+  void gauss_seidel(Eigen::Ref<Eigen::Matrix<T, Eigen::Dynamic, 1>> h, int iterations) const;
 };
 
 #endif // MESH_HPP

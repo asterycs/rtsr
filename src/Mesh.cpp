@@ -112,7 +112,6 @@ void Mesh<T>::align_to_point_cloud(const Eigen::Matrix<T, Rows, Cols>& P)
   F.resize((MESH_RESOLUTION-1)*(MESH_RESOLUTION-1)*2, 3);
   JtJ.resize(MESH_RESOLUTION);
   Jtz.resize(MESH_RESOLUTION);
-  h = Eigen::Matrix<T, Eigen::Dynamic, 1>::Zero(MESH_RESOLUTION*MESH_RESOLUTION);
 
 #pragma omp parallel for
   for (int z_step = 0; z_step < MESH_RESOLUTION; ++z_step)
@@ -183,14 +182,11 @@ void Mesh<T>::set_target_point_cloud(const Eigen::Matrix<T, Rows, Cols>& P)
 template <typename T>
 void Mesh<T>::iterate()
 {
-  gauss_seidel(h, 1);
-
-  V.col(1) = h;
+  gauss_seidel(V.col(1), 1);
 }
 
 template <typename T>
-template <int HRows>
-void Mesh<T>::gauss_seidel(Eigen::Matrix<T, HRows, 1>& h, int iterations) const
+void Mesh<T>::gauss_seidel(Eigen::Ref<Eigen::Matrix<T, Eigen::Dynamic, 1>> h, int iterations) const
 {
   const auto& Jtz_vec = Jtz.get_vec();
     
@@ -218,7 +214,8 @@ void Mesh<T>::gauss_seidel(Eigen::Matrix<T, HRows, 1>& h, int iterations) const
       
       xn -= acc;
       
-      h(i) = xn/a;
+      const T w = 1.0;
+      h(i) = (1-w) * h(i) + w*xn/a;
     }
   }
 }
@@ -227,7 +224,6 @@ void Mesh<T>::gauss_seidel(Eigen::Matrix<T, HRows, 1>& h, int iterations) const
 template class Mesh<double>;
 template void Mesh<double>::align_to_point_cloud(const Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>&);
 template void Mesh<double>::set_target_point_cloud(const Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>&);
-template void Mesh<double>::gauss_seidel(Eigen::Matrix<double, Eigen::Dynamic, 1>&, int iterations) const;
 
 //template class Mesh<float>;
 //template void Mesh<float>::align_to_point_cloud(const Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>&);
