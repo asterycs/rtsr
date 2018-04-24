@@ -9,7 +9,7 @@ endif(ENABLE_CUDA)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror -Wno-error=unused-parameter -Wconversion -Wno-error=conversion")
 
 add_executable(${PROJECT_NAME} ${CXX_SRC} ${CU_SRC})
-target_link_libraries(${PROJECT_NAME} ${Boost_LIBRARIES} igl::core igl::opengl_glfw igl::opengl igl::triangle igl::embree igl::opengl_glfw_imgui)
+target_link_libraries(${PROJECT_NAME} ${Boost_LIBRARIES} igl::core igl::opengl_glfw igl::opengl igl::opengl_glfw_imgui)
 
 if (CMAKE_BUILD_TYPE EQUAL "RELEASE")
     include(CheckIPOSupported)

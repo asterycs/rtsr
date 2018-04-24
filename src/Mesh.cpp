@@ -1,6 +1,5 @@
 #include "Mesh.hpp"
 
-#include "igl/embree/line_mesh_intersection.h"
 #include "igl/fit_plane.h"
 #include "igl/mat_min.h"
 #include "igl/barycentric_to_global.h"
@@ -92,9 +91,9 @@ const Eigen::MatrixXi& Mesh<T>::faces()
 }
 
 template <typename T>
-void barycentric(const Eigen::Matrix<T, 3, 1>& p, const Eigen::Matrix<T, 3, 1>& a, const Eigen::Matrix<T, 3, 1>& b, const Eigen::Matrix<T, 3, 1>& c, T &u, T &v, T &w)
+void barycentric(const Eigen::Matrix<T, 2, 1>& p, const Eigen::Matrix<T, 2, 1>& a, const Eigen::Matrix<T, 2, 1>& b, const Eigen::Matrix<T, 2, 1>& c, T &u, T &v, T &w)
 {
-    Eigen::Matrix<T, 3, 1> v0 = b - a,
+    Eigen::Matrix<T, 2, 1> v0 = b - a,
                                            v1 = c - a,
                                            v2 = p - a;
     T a00 = v0.dot(v0);
@@ -125,8 +124,6 @@ void project_points(const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& P, c
   for (int pi = 0; pi < P.rows(); ++pi)
   {
     const Eigen::Matrix<T, 2, 1> current_point(P.row(pi)(0), P.row(pi)(2));
-    const Eigen::Matrix<T, 3, 1> current_point_proj(P.row(pi)(0), T(0.0), P.row(pi)(2));
-    
     const Eigen::Matrix<T, 2, 1> offset( current_point - V_00 );
     
     const int c = static_cast<int>(offset(0) / dx);
@@ -146,9 +143,9 @@ void project_points(const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& P, c
     const double ul_squared_dist = (ul_reference - current_point).squaredNorm();
     const double br_squared_dist = (br_reference - current_point).squaredNorm();
     
-    Eigen::Matrix<T, 3, 1> v_a;
-    Eigen::Matrix<T, 3, 1> v_b;
-    Eigen::Matrix<T, 3, 1> v_c;
+    Eigen::Matrix<T, 2, 1> v_a;
+    Eigen::Matrix<T, 2, 1> v_b;
+    Eigen::Matrix<T, 2, 1> v_c;
     
     int f_idx = -1;
     
@@ -156,30 +153,20 @@ void project_points(const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& P, c
     {
       f_idx = 2 * c + r * 2 * (MESH_RESOLUTION-1);
       
-      v_a = V.row(c + r*MESH_RESOLUTION);
-      v_a(1) = T(0.0);
-      
-      v_b = V.row(c+1 + r*MESH_RESOLUTION);
-      v_b(1) = T(0.0);
-      
-      v_c = V.row(c + (r+1)*MESH_RESOLUTION);
-      v_c(1) = T(0.0);
+      v_a << V.row(c + r*MESH_RESOLUTION)(0), V.row(c + r*MESH_RESOLUTION)(2);
+      v_b << V.row(c+1 + r*MESH_RESOLUTION)(0),V.row(c+1 + r*MESH_RESOLUTION)(2);
+      v_c << V.row(c + (r+1)*MESH_RESOLUTION)(0),V.row(c + (r+1)*MESH_RESOLUTION)(2);
     }else
     {
       f_idx = 2 * c + r * 2 * (MESH_RESOLUTION-1) + 1;
       
-      v_a = V.row(c+1 + (r+1)*MESH_RESOLUTION);
-      v_a(1) = T(0.0);
-      
-      v_b = V.row(c + (r+1)*MESH_RESOLUTION);
-      v_b(1) = T(0.0);
-      
-      v_c = V.row(c+1 + r*MESH_RESOLUTION);
-      v_c(1) = T(0.0);
+      v_a << V.row(c+1 + (r+1)*MESH_RESOLUTION)(0),V.row(c+1 + (r+1)*MESH_RESOLUTION)(2);
+      v_b << V.row(c + (r+1)*MESH_RESOLUTION)(0),V.row(c + (r+1)*MESH_RESOLUTION)(2);
+      v_c << V.row(c+1 + r*MESH_RESOLUTION)(0),V.row(c+1 + r*MESH_RESOLUTION)(2);
     }
     
     T u,v,w;
-    barycentric(current_point_proj, v_a, v_b, v_c, u, v, w);
+    barycentric(current_point, v_a, v_b, v_c, u, v, w);
     
     bc.row(pi) << f_idx, u, v;
   }
