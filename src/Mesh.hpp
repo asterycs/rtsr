@@ -8,7 +8,7 @@
 #include "EqHelpers.hpp"
 
 // Number of vertices along one dimension
-#define MESH_RESOLUTION 50
+#define MESH_RESOLUTION 51
 // Scale factor. 1 makes the mesh the same size as the bb of the
 // pc given to align_to_point_cloud
 #define MESH_SCALING_FACTOR 1.2
@@ -39,7 +39,11 @@ private:
   Eigen::MatrixXi F; // Face vertex indices
   Eigen::Matrix<T, 4, 4> transform; // Mesh location and orientation
 
-  void gauss_seidel(Eigen::Ref<Eigen::Matrix<T, Eigen::Dynamic, 1>> h, int iterations) const;
+  template <int Iterations>
+  void sor(Eigen::Ref<Eigen::Matrix<T, Eigen::Dynamic, 1>> h) const;
+  
+  template <int Iterations>
+  void sor_parallel(Eigen::Ref<Eigen::Matrix<T, Eigen::Dynamic, 1>> h) const;
 };
 
 #endif // MESH_HPP
