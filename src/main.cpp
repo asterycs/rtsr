@@ -1,6 +1,5 @@
 #include "igl/opengl/glfw/Viewer.h"
 #include "igl/readOFF.h"
-#include "igl/embree/line_mesh_intersection.h"
 #include "igl/fit_plane.h"
 #include "igl/mat_min.h"
 #include "DataSet.hpp"
