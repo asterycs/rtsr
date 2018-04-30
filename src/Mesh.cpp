@@ -32,62 +32,82 @@ void Mesh<T>::align_to_point_cloud(const Eigen::Matrix<T, Rows, Cols>& P)
   const TvecR3 bb_max = P.colwise().maxCoeff();
   const TvecR3 bb_d = (bb_max - bb_min).cwiseAbs();
   
-  // Scaling matrix
-  const Eigen::Transform<T, 3, Eigen::Affine> scaling(Eigen::Scaling(TvecC3(MESH_SCALING_FACTOR*bb_d(0)/(MESH_RESOLUTION-1), 0.,MESH_SCALING_FACTOR*bb_d(2)/(MESH_RESOLUTION-1))));
-  
-  const TvecR3 pc_mean = P.colwise().mean();
-  
-  // P_centr: mean of the point cloud
-  TvecR3 P_centr = bb_min + 0.5*(bb_max - bb_min);
-  P_centr(1) = pc_mean(1); // Move to mean height w/r to pc instead of bb.
-  
-  const Eigen::Transform<T, 3, Eigen::Affine> t(Eigen::Translation<T, 3>(P_centr.transpose()));
-  
-  transform = t.matrix();
+  JtJ.resize(MESH_LEVELS);
+  Jtz.resize(MESH_LEVELS);
+  V.resize(MESH_LEVELS);
+  F.resize(MESH_LEVELS);
+
+  for (int li = 0; li < MESH_LEVELS; ++li)
+  {  
+    const double scaling_factor = MESH_SCALING_FACTOR;
+    const unsigned int resolution = MESH_RESOLUTION * (li + 1);
     
-  V.resize(MESH_RESOLUTION*MESH_RESOLUTION, 3);
-  F.resize((MESH_RESOLUTION-1)*(MESH_RESOLUTION-1)*2, 3);
-  JtJ.resize(MESH_RESOLUTION);
-  Jtz.resize(MESH_RESOLUTION);
-
-#pragma omp parallel for
-  for (int z_step = 0; z_step < MESH_RESOLUTION; ++z_step)
-  {
-    for (int x_step = 0; x_step < MESH_RESOLUTION; ++x_step)
-    {
-      Eigen::Matrix<T, 1, 4> v; v << TvecR3(x_step-T(MESH_RESOLUTION-1)/2.f,1.f, z_step-T(MESH_RESOLUTION-1)/2.f),1.f;
-      V.row(x_step + z_step*MESH_RESOLUTION) << (v * scaling.matrix().transpose() * transform.transpose()).template head<3>();
-    }
-  }
-  
-#pragma omp parallel for
-  for (int y_step = 0; y_step < MESH_RESOLUTION-1; ++y_step)
-  {
-    for (int x_step = 0; x_step < MESH_RESOLUTION-1; ++x_step)
-    {
-      F.row(x_step*2 + y_step*(MESH_RESOLUTION-1)*2)     << x_step+   y_step   *MESH_RESOLUTION,x_step+1+y_step*   MESH_RESOLUTION,x_step+(y_step+1)*MESH_RESOLUTION;
-      F.row(x_step*2 + y_step*(MESH_RESOLUTION-1)*2 + 1) << x_step+1+(y_step+1)*MESH_RESOLUTION,x_step+ (y_step+1)*MESH_RESOLUTION,x_step+1+y_step*MESH_RESOLUTION;
-    }
-  }
+    // Scaling matrix
+    const Eigen::Transform<T, 3, Eigen::Affine> scaling(Eigen::Scaling(TvecC3(scaling_factor*bb_d(0)/(resolution-1), 0.,scaling_factor*bb_d(2)/(resolution-1))));
+    
+    const TvecR3 pc_mean = P.colwise().mean();
+    
+    // P_centr: mean of the point cloud
+    TvecR3 P_centr = bb_min + 0.5*(bb_max - bb_min);
+    P_centr(1) = pc_mean(1); // Move to mean height w/r to pc instead of bb.
+    
+    const Eigen::Transform<T, 3, Eigen::Affine> t(Eigen::Translation<T, 3>(P_centr.transpose()));
+    
+    transform = t.matrix();
       
-  // Initialize Lh and rh with sensible values
-  for (int i = 0; i < (MESH_RESOLUTION-1)*(MESH_RESOLUTION-1)*2; ++i)
-    JtJ.update_triangle(i, 0.34f, 0.33f);
+    V[li].resize(resolution*resolution, 3);
+    F[li].resize((resolution-1)*(resolution-1)*2, 3);
+    JtJ[li].resize(resolution);
+    Jtz[li].resize(resolution);
 
-  for (int i = 0; i < (MESH_RESOLUTION-1)*(MESH_RESOLUTION-1)*2; ++i)
-    Jtz.update_triangle(i, 0.34f, 0.33f, pc_mean(1));
+  #pragma omp parallel for
+    for (unsigned int z_step = 0; z_step < resolution; ++z_step)
+    {
+      for (unsigned int x_step = 0; x_step < resolution; ++x_step)
+      {
+        Eigen::Matrix<T, 1, 4> v; v << TvecR3(x_step-T(resolution-1)/2.f,1.f, z_step-T(resolution-1)/2.f),1.f;
+        V[li].row(x_step + z_step*resolution) << (v * scaling.matrix().transpose() * transform.transpose()).template head<3>();
+      }
+    }
+    
+  #pragma omp parallel for
+    for (unsigned int y_step = 0; y_step < resolution-1; ++y_step)
+    {
+      for (unsigned int x_step = 0; x_step < resolution-1; ++x_step)
+      {
+        F[li].row(x_step*2 + y_step*(resolution-1)*2)     << x_step+   y_step   *resolution,x_step+1+y_step*   resolution,x_step+(y_step+1)*resolution;
+        F[li].row(x_step*2 + y_step*(resolution-1)*2 + 1) << x_step+1+(y_step+1)*resolution,x_step+ (y_step+1)*resolution,x_step+1+y_step*resolution;
+      }
+    }
+     
+   if (li == 0)
+   {
+      // Initialize Lh and rh with sensible values
+      for (unsigned int i = 0; i < (resolution-1)*(resolution-1)*2; ++i)
+        JtJ[li].update_triangle(i, 0.34f, 0.33f);
+
+      for (unsigned int i = 0; i < (resolution-1)*(resolution-1)*2; ++i)
+        Jtz[li].update_triangle(i, 0.34f, 0.33f, pc_mean(1));
+   }
+  }
 }
 
 template <typename T>
-const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& Mesh<T>::vertices()
+const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& Mesh<T>::vertices(const unsigned int level)
 {
-  return this->V;
+  if (level >= V.size())
+    return this->V[0];
+  else
+    return this->V[level];
 }
 
 template <typename T>
-const Eigen::MatrixXi& Mesh<T>::faces()
+const Eigen::MatrixXi& Mesh<T>::faces(const unsigned int level)
 {
-  return this->F;
+  if (level >= F.size())
+    return this->F[0];
+  else
+    return this->F[level];
 }
 
 template <typename T>
@@ -185,7 +205,7 @@ void Mesh<T>::set_target_point_cloud(const Eigen::Matrix<T, Rows, Cols>& P)
   // Made our own projection function
   // bc stored as "face_index u v"
   Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> bc;
-  project_points<T>(P, V, bc);
+  project_points<T>(P, V[0], bc);
   
   for (int i = 0; i < bc.rows(); ++i)
   {
@@ -194,15 +214,15 @@ void Mesh<T>::set_target_point_cloud(const Eigen::Matrix<T, Rows, Cols>& P)
     if (static_cast<int>(row(0)) == -1)
       continue;
     
-    JtJ.update_triangle(static_cast<int>(row(0)), row(1), row(2));
-    Jtz.update_triangle(static_cast<int>(row(0)), row(1), row(2), P.row(i)(1));
+    JtJ[0].update_triangle(static_cast<int>(row(0)), row(1), row(2));
+    Jtz[0].update_triangle(static_cast<int>(row(0)), row(1), row(2), P.row(i)(1));
   }
 }
 
 template <typename T>
 void Mesh<T>::iterate()
 {
-  sor_parallel<1>(V.col(1));
+  sor_parallel<1>(V[0].col(1));
 }
 
 template <typename T>
@@ -243,7 +263,7 @@ template <typename T>
 template <int Iterations>
 void Mesh<T>::sor_parallel(Eigen::Ref<Eigen::Matrix<T, Eigen::Dynamic, 1>> h) const
 {
-  const auto& Jtz_vec = Jtz.get_vec();
+  const auto& Jtz_vec = Jtz[0].get_vec();
     
   for(int it = 0; it < Iterations; it++)
   {
@@ -252,7 +272,7 @@ void Mesh<T>::sor_parallel(Eigen::Ref<Eigen::Matrix<T, Eigen::Dynamic, 1>> h) co
       for (int y = 0; y < MESH_RESOLUTION; y+=2)
       {
         const int vi = x + y * MESH_RESOLUTION;
-        sor_inner(vi, JtJ, Jtz_vec, h);
+        sor_inner(vi, JtJ[0], Jtz_vec, h);
       }
 
 #pragma omp parallel for collapse(2)    
@@ -260,7 +280,7 @@ void Mesh<T>::sor_parallel(Eigen::Ref<Eigen::Matrix<T, Eigen::Dynamic, 1>> h) co
       for (int y = 0; y < MESH_RESOLUTION; y+=2)
       {
         const int vi = x + y * MESH_RESOLUTION;
-        sor_inner(vi, JtJ, Jtz_vec, h);
+        sor_inner(vi, JtJ[0], Jtz_vec, h);
       }
 
 #pragma omp parallel for collapse(2)
@@ -268,7 +288,7 @@ void Mesh<T>::sor_parallel(Eigen::Ref<Eigen::Matrix<T, Eigen::Dynamic, 1>> h) co
       for (int y = 1; y < MESH_RESOLUTION; y+=2)
       {
         const int vi = x + y * MESH_RESOLUTION;
-        sor_inner(vi, JtJ, Jtz_vec, h);
+        sor_inner(vi, JtJ[0], Jtz_vec, h);
       }
       
 #pragma omp parallel for collapse(2)
@@ -276,7 +296,7 @@ void Mesh<T>::sor_parallel(Eigen::Ref<Eigen::Matrix<T, Eigen::Dynamic, 1>> h) co
       for (int y = 1; y < MESH_RESOLUTION; y+=2)
       {
         const int vi = x + y * MESH_RESOLUTION;
-        sor_inner(vi, JtJ, Jtz_vec, h);
+        sor_inner(vi, JtJ[0], Jtz_vec, h);
       }
   }
 }

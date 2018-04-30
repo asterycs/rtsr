@@ -15,8 +15,9 @@
 #include <fstream>
 #include <sstream>
 
+int viewer_mesh_level = 0;
 Mesh<double> mesh;
-Eigen::MatrixXd P, P1, P2;
+Eigen::MatrixXd P, P2, current_target;
 DataSet *ds;
 
 template <typename T>
@@ -102,12 +103,30 @@ void generate_example_point_cloud2(Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynam
   
 }
 
+void reload_viewer_data(igl::opengl::glfw::Viewer &viewer, const Eigen::MatrixXd pc, const Eigen::MatrixXd C, const unsigned int mesh_level)
+{   
+    viewer.data().clear();
+    viewer.data().point_size = 5;
+    viewer.data().add_points(pc, C);
+    viewer.data().set_mesh(mesh.vertices(viewer_mesh_level), mesh.faces(viewer_mesh_level));
+    viewer.data().compute_normals();
+    viewer.data().invert_normals = true;
+}
+
+void reload_viewer_data(igl::opengl::glfw::Viewer &viewer, const Eigen::MatrixXd pc, const unsigned int mesh_level)
+{
+    Eigen::MatrixXd C(1, 3);
+    C << 0.f,0.7f,0.7f;
+    
+   reload_viewer_data(viewer, pc, C, mesh_level);
+}
+
 bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int /*modifier*/)
 {
   if (key == '1')
   {
     mesh.iterate();
-    viewer.data().set_mesh(mesh.vertices(), mesh.faces());
+    viewer.data().set_mesh(mesh.vertices(viewer_mesh_level), mesh.faces(viewer_mesh_level));
     viewer.data().compute_normals();
     viewer.data().invert_normals = true;
   }
@@ -120,16 +139,27 @@ bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int
     
     if (ds) {
       Eigen::Matrix4d t_camera;
-      ds->get_next_point_cloud(P2, C, t_camera);
-    }
-    viewer.data().clear();
-    mesh.set_target_point_cloud(P2);
-    viewer.data().add_points(P2, C);
-    viewer.data().set_mesh(mesh.vertices(), mesh.faces());
-    viewer.data().compute_normals();
-    viewer.data().invert_normals = true;
+      ds->get_next_point_cloud(current_target, C, t_camera);
+    }else
+      current_target = P2;
+      
+    mesh.set_target_point_cloud(current_target);
+    reload_viewer_data(viewer, current_target, C, viewer_mesh_level);
     
   }
+  
+  if (key == '0')
+  {
+    viewer_mesh_level = viewer_mesh_level >= MESH_LEVELS - 1 ? viewer_mesh_level : viewer_mesh_level + 1;
+    reload_viewer_data(viewer, current_target, viewer_mesh_level);
+  }
+    
+  if (key == '-')
+  {
+    viewer_mesh_level = viewer_mesh_level < 1 ? viewer_mesh_level : viewer_mesh_level - 1;
+    reload_viewer_data(viewer, current_target, viewer_mesh_level); 
+  }
+  
   
   return true;
 }
@@ -140,7 +170,7 @@ int main(int argc, char* argv[]) {
     
     Eigen::MatrixXd C(1, 3);
     C << 0.f,0.7f,0.7f;
-    
+        
     if (argc > 2)
     {
       std::cout << "Usage: $0" << std::endl;
@@ -150,26 +180,21 @@ int main(int argc, char* argv[]) {
       ds = new DataSet(folder);
       Eigen::Matrix4d t_camera;
       ds->get_next_point_cloud(P, C, t_camera);
-      P1 = P;
+      current_target = P;
     } else {
       Eigen::VectorXi id1, id2;
       generate_example_point_cloud2(P, id1, id2);
-      split_point_cloud(P, P1, P2, id1, id2);
+      split_point_cloud(P, current_target, P2, id1, id2);
     }
     
     mesh.align_to_point_cloud(P); // Resets the mesh everytime it is called
-    mesh.set_target_point_cloud(P1);
+    mesh.set_target_point_cloud(current_target);
     
     igl::opengl::glfw::Viewer viewer;    
     viewer.callback_key_down = callback_key_down;
     
-    viewer.data().clear();
-    viewer.core.align_camera_center(P);
-    viewer.data().point_size = 5;
-    viewer.data().add_points(P1, C);
-    viewer.data().set_mesh(mesh.vertices(), mesh.faces());
-    viewer.data().compute_normals();
-    viewer.data().invert_normals = true;
+    reload_viewer_data(viewer, current_target, C, viewer_mesh_level);
+    viewer.core.align_camera_center(current_target);
     
     igl::opengl::glfw::imgui::ImGuiMenu menu;
     viewer.plugins.push_back(&menu);
@@ -178,6 +203,7 @@ int main(int argc, char* argv[]) {
     {
       ImGui::Text("Iterate: \"1\"");
       ImGui::Text("Next point cloud: \"2\"");
+      ImGui::Text("Current mesh level: %d", viewer_mesh_level);
     };
     
     viewer.launch();

@@ -162,6 +162,11 @@ public:
     this->mesh_width = mesh_width;
   }
   
+ unsigned int get_width() const
+ {
+   return this->mesh_width;
+ }
+  
   const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& get_mat() const
   {
     return this->mat;
