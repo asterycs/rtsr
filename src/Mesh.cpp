@@ -46,7 +46,6 @@ void Mesh<T>::align_to_point_cloud(const Eigen::Matrix<T, Rows, Cols>& P)
     const Eigen::Transform<T, 3, Eigen::Affine> scaling(Eigen::Scaling(TvecC3(scaling_factor*bb_d(0)/(resolution-1), 0.,scaling_factor*bb_d(2)/(resolution-1))));
     
     const TvecR3 pc_mean = P.colwise().mean();
-    
     // P_centr: mean of the point cloud
     TvecR3 P_centr = bb_min + 0.5*(bb_max - bb_min);
     P_centr(1) = pc_mean(1); // Move to mean height w/r to pc instead of bb.
@@ -223,6 +222,29 @@ template <typename T>
 void Mesh<T>::iterate()
 {
   sor_parallel<1>(V[0].col(1));
+  
+  // Weird matrix multiplication to figure out lh
+  const int vertices = JtJ[0].get_width() * JtJ[0].get_width();
+  Eigen::Matrix<T, Eigen::Dynamic, 1> lh = Eigen::Matrix<T, Eigen::Dynamic, 1>::Zero(vertices);
+  
+  for (int vi = 0; vi < vertices; ++vi)
+  {
+    std::array<T, 6> vals;
+    std::array<int, 6> ids;
+
+    T a;
+    JtJ[0].get_matrix_values_for_vertex(vi, vals, ids, a);
+    
+    T res = 0;
+    
+    for (int j = 0; j < 6; ++j)
+      res += vals[j] * V[0].col(1)(ids[j]);
+      
+      lh(vi) = res;
+  }
+  
+  std::cout << (lh - V[0].col(1)).array().abs().sum() << std::endl;
+
 }
 
 template <typename T>
@@ -244,10 +266,10 @@ inline void sor_inner(const int vi, const JtJMatrixGrid<T>& JtJ, const Eigen::Ma
   T xn = Jtz_vec(vi);
   T acc = 0;
 
-  std::array<double, 6> vals;
+  std::array<T, 6> vals;
   std::array<int, 6> ids;
 
-  double a;
+  T a;
   JtJ.get_matrix_values_for_vertex(vi, vals, ids, a);
 
   for (int j = 0; j < 6; ++j)
