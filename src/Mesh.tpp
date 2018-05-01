@@ -64,8 +64,8 @@ void upsample(const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& V, const E
         const TvecC3 v2 = old_v1;
         const TvecC3 v3 = (old_v0 + old_v2) * T(0.5);
         const TvecC3 v4 = (old_v2 + old_v1) * T(0.5);
-        const TvecC3 v5 = old_v5;
-        const TvecC3 v6 = old_v0;
+        const TvecC3 v5 = (old_v2 + old_v5) * T(0.5);
+        const TvecC3 v6 = old_v2;
         const TvecC3 v7 = (old_v3 + old_v4) * T(0.5);
         const TvecC3 v8 = old_v3;
 
