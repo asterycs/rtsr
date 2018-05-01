@@ -15,7 +15,7 @@ public:
   bool get_next_point_cloud(Eigen::MatrixXd& P, Eigen::MatrixXd &colors, Eigen::Matrix4d& t_camera);
 private:
   bool get_next_camera(Eigen::Matrix4d& cam, const double timestamp);
-  const char* get_next_rgb(const double timestamp);
+  std::string get_next_rgb(const double timestamp);
 
   bool operational;
   std::vector<std::string> depth_files;

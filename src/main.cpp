@@ -17,7 +17,7 @@
 
 int viewer_mesh_level = 0;
 Mesh<double> mesh;
-Eigen::MatrixXd P, P2, current_target;
+Eigen::MatrixXd P, P2, current_target, C;
 DataSet *ds;
 
 template <typename T>
@@ -117,10 +117,7 @@ void reload_viewer_data(igl::opengl::glfw::Viewer &viewer, const Eigen::MatrixXd
 }
 
 void reload_viewer_data(igl::opengl::glfw::Viewer &viewer, const Eigen::MatrixXd pc, const unsigned int mesh_level)
-{
-    Eigen::MatrixXd C(1, 3);
-    C << 0.f,0.7f,0.7f;
-    
+{    
    reload_viewer_data(viewer, pc, C, mesh_level);
 }
 
@@ -140,7 +137,7 @@ bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int
   if (key == '2')
   {
     
-    Eigen::MatrixXd C(1, 3);
+    C.resize(1, 3);
     C << 0.f,0.7f,0.7f;
     
     if (ds) {
@@ -150,6 +147,21 @@ bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int
       current_target = P2;
       
     mesh.set_target_point_cloud(current_target);
+    reload_viewer_data(viewer, current_target, C, viewer_mesh_level);
+    
+  }
+  
+  if (key == '3' && ds)
+  {
+    Eigen::Matrix4d t_camera;
+    for (int i = 0; i < 5; ++i)
+    {
+      if (!ds->get_next_point_cloud(current_target, C, t_camera))
+        break;
+        
+      mesh.set_target_point_cloud(current_target);
+      mesh.solve(10);
+    }
     reload_viewer_data(viewer, current_target, C, viewer_mesh_level);
     
   }
@@ -174,7 +186,7 @@ int main(int argc, char* argv[]) {
     // Read points and normals
     // igl::readOFF(argv[1],P,F,N);
     
-    Eigen::MatrixXd C(1, 3);
+    C.resize(1,3);
     C << 0.f,0.7f,0.7f;
         
     if (argc > 2)
