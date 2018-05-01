@@ -249,20 +249,6 @@ void Mesh<T>::update_weights(const int level, const Eigen::Matrix<T, Eigen::Dyna
   }
 }
 
-/*inline void get_vertex_position(const int level, const int vi, Eigen::Matrix<T, 3, 1> out)
-{
-  out = V[0].row(vi);
-  
-  if (level < 0 || level >= MESH_LEVELS)
-    return;
-    
-  for (int i = 1; i < level; ++i)
-  {
-    out(1) += V[i].row()
-  }
-    // TODO
-}*/
-
 template <typename T>
 void Mesh<T>::solve(const int iterations)
 {
@@ -278,33 +264,35 @@ void Mesh<T>::solve(const int iterations)
   for (int li = 1; li < MESH_LEVELS; ++li)
   {
     TMat point_with_residual_height = TMat::Zero(current_target_point_cloud.rows(), current_target_point_cloud.cols());
-
+    
+    Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> V_upsampled;
+    Eigen::MatrixXi F_upsampled;
+    get_mesh(li, V_upsampled, F_upsampled);
+    project_points(li, bc);
+    
     for (int pi = 0; pi < bc.rows(); ++pi)
     {
       if (static_cast<int>(bc.row(pi)(0)) == -1) // No hit
         continue;
-
-      // Vertices of triangle that is hit
-      // Indexing: Element 0 in bc.row(pi) is index of the triangle. The individual vertices are stored in F.
       
-      // TODO: THIS IS WRONG.
-      // Need to compute vertex position using all previous layers.
-      const TvecC3 v0 = V[li-1].row(F[li-1].row(static_cast<int>(bc.row(pi)(0)))(0));
-      const TvecC3 v1 = V[li-1].row(F[li-1].row(static_cast<int>(bc.row(pi)(0)))(1));
-      const TvecC3 v2 = V[li-1].row(F[li-1].row(static_cast<int>(bc.row(pi)(0)))(2));
+      const TvecC3 v0 = V_upsampled.row(F_upsampled.row(static_cast<int>(bc.row(pi)(0)))(0));
+      const TvecC3 v1 = V_upsampled.row(F_upsampled.row(static_cast<int>(bc.row(pi)(0)))(1));
+      const TvecC3 v2 = V_upsampled.row(F_upsampled.row(static_cast<int>(bc.row(pi)(0)))(2));
       
       // Ideally these should be equal
-      const TvecC3 solved_point = bc.row(pi)(1) * v0 + bc.row(pi)(2) * v1 + (1 - bc.row(pi)(1) - bc.row(pi)(2)) * v2;
+      const TvecC3 solved_point = bc.row(pi)(1) * v0 + bc.row(pi)(2) * v1 + (1.0 - bc.row(pi)(1) - bc.row(pi)(2)) * v2;
       const TvecC3 measured_point = current_target_point_cloud.row(pi);
+      
+      if (pi == 0)
+      {
+        std::cout << measured_point << std::endl << solved_point<< std::endl << std::endl;
+      }
       
       point_with_residual_height.row(pi) = measured_point - solved_point;
     }
     
-    project_points(1, bc);
-    update_weights(1, bc, point_with_residual_height.col(1));
-    
-    // Fuse to second layer
-    sor_parallel(iterations, 1, V[li].col(1));
+    update_weights(li, bc, point_with_residual_height.col(1));
+    sor_parallel(iterations, li, V[li].col(1));
   }
 }
 
@@ -382,9 +370,3 @@ void Mesh<T>::sor_parallel(const int iterations, const int level, Eigen::Ref<Eig
       }
   }
 }
-
-
-// Explicit instantiation
-template class Mesh<double>;
-template void Mesh<double>::align_to_point_cloud(const Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>&);
-

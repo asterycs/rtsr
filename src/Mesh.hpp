@@ -9,11 +9,11 @@
 #include "EqHelpers.hpp"
 
 // Number of vertices along one dimension
-#define MESH_RESOLUTION 30
+#define MESH_RESOLUTION 3
 // Scale factor. 1 makes the mesh the same size as the bb of the
 // pc given to align_to_point_cloud
 #define MESH_SCALING_FACTOR 1.4
-#define MESH_LEVELS 3
+#define MESH_LEVELS 2
 
 template <typename T>
 class Mesh
@@ -46,5 +46,7 @@ private:
   void project_points(const int level, Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& bc) const;
   void update_weights(const int level, const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& bc, const Eigen::Matrix<T, Eigen::Dynamic, 1>& z);
 };
+
+#include "Mesh.tpp"
 
 #endif // MESH_HPP
