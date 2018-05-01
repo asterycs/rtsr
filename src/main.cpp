@@ -166,6 +166,12 @@ bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int
     reload_viewer_data(viewer, current_target, viewer_mesh_level); 
   }
   
+  if (key == 'D')
+  {
+    mesh.debug(viewer);
+    std::cout << "debug" << std::endl;
+  }
+  
   
   return true;
 }

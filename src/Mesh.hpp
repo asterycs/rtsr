@@ -9,10 +9,10 @@
 #include "EqHelpers.hpp"
 
 // Number of vertices along one dimension
-#define MESH_RESOLUTION 3
+#define MESH_RESOLUTION 30
 // Scale factor. 1 makes the mesh the same size as the bb of the
 // pc given to align_to_point_cloud
-#define MESH_SCALING_FACTOR 1.4
+#define MESH_SCALING_FACTOR 1.1
 #define MESH_LEVELS 2
 
 template <typename T>
@@ -30,6 +30,8 @@ public:
   void solve(const int iterations);
   
   void get_mesh(const unsigned int level, Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& V_out, Eigen::MatrixXi& F_out) const;
+  
+  void debug(igl::opengl::glfw::Viewer &viewer);
   
 private:
   std::vector<JtJMatrixGrid<T>, Eigen::aligned_allocator<JtJMatrixGrid<T>>> JtJ;

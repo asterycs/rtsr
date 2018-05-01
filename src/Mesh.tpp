@@ -2,8 +2,6 @@
 
 #include "igl/fit_plane.h"
 #include "igl/mat_min.h"
-#include "igl/barycentric_to_global.h"
-#include "igl/upsample.h"
 
 #include <Eigen/QR>
 
@@ -31,6 +29,108 @@ int subdivided_side_length(const int level, const int base_resolution)
     res += res-1;
   
   return res;
+}
+
+template <typename T>
+void upsample(const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& V, const Eigen::MatrixXi& F, Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& V_out, Eigen::MatrixXi& F_out)
+{
+    using TvecC3 = Eigen::Matrix<T, 3, 1>;
+    const int old_resolution = static_cast<int>(std::sqrt(static_cast<double>(V.rows())));
+    const int resolution = subdivided_side_length(1, old_resolution);
+    const int faces = (resolution - 1) * (resolution - 1) * 2;
+    const int vertices = resolution * resolution;
+    
+    F_out = Eigen::MatrixXi::Zero(faces, 3);
+    V_out = Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>::Zero(vertices, 3);
+        
+    for (int y_step = 0; y_step < old_resolution-1; ++y_step)
+    {
+      for (int x_step = 0; x_step < old_resolution-1; ++x_step)
+      {
+        
+        Eigen::Vector3i f_u = F.row(x_step*2 + y_step*(old_resolution-1)*2);
+        Eigen::Vector3i f_l = F.row(x_step*2 + y_step*(old_resolution-1)*2 + 1);
+
+        const TvecC3 old_v0 = V.row(f_u(0));
+        const TvecC3 old_v1 = V.row(f_u(1));
+        const TvecC3 old_v2 = V.row(f_u(2));
+        
+        const TvecC3 old_v3 = V.row(f_l(0));
+        const TvecC3 old_v4 = V.row(f_l(1));
+        const TvecC3 old_v5 = V.row(f_l(2));
+
+        const TvecC3 v0 = old_v0;
+        const TvecC3 v1 = (old_v0 + old_v1) * T(0.5);
+        const TvecC3 v2 = old_v1;
+        const TvecC3 v3 = (old_v0 + old_v2) * T(0.5);
+        const TvecC3 v4 = (old_v2 + old_v1) * T(0.5);
+        const TvecC3 v5 = old_v5;
+        const TvecC3 v6 = old_v0;
+        const TvecC3 v7 = (old_v3 + old_v4) * T(0.5);
+        const TvecC3 v8 = old_v3;
+
+        // TODO Check boundaries
+        const int new_v_xi = x_step * 2;
+        const int new_v_yi = y_step * 2;
+        
+        int
+        v0i = new_v_xi       + new_v_yi * resolution,
+        v1i = new_v_xi + 1 + new_v_yi * resolution,
+        v2i = new_v_xi + 2+ new_v_yi * resolution,
+        v3i = new_v_xi + (new_v_yi+1) * resolution,
+        v4i = new_v_xi + 1 + (new_v_yi+1) * resolution,
+        v5i = new_v_xi + 2 + (new_v_yi+1) * resolution,
+        v6i = new_v_xi       + (new_v_yi+2) * resolution,
+        v7i = new_v_xi + 1 + (new_v_yi+2) * resolution,
+        v8i = new_v_xi + 2 + (new_v_yi+2) * resolution;
+        
+        V_out.row(v0i) = v0;
+        V_out.row(v1i) = v1;
+        V_out.row(v2i) = v2;
+        V_out.row(v3i) = v3;
+        V_out.row(v4i) = v4;
+        V_out.row(v5i) = v5;
+        V_out.row(v6i) = v6;
+        V_out.row(v7i) = v7;
+        V_out.row(v8i) = v8;
+
+        const int new_f_xi = x_step * 2;
+        const int new_f_yi = y_step * 2;
+        
+        F_out.row(new_f_xi       + new_f_yi * (resolution-1)) << v0i,v1i,v3i;
+        F_out.row(new_f_xi + 1 + new_f_yi * (resolution-1)) << v4i,v3i,v1i;
+        F_out.row(new_f_xi + 2 + new_f_yi * (resolution-1)) << v1i,v2i,v4i;
+        F_out.row(new_f_xi + 3 + new_f_yi * (resolution-1)) << v5i,v4i,v2i;
+        F_out.row(new_f_xi +       (new_f_yi+1) * (resolution-1)) << v3i,v4i,v6i;
+        F_out.row(new_f_xi + 1 + (new_f_yi+1) * (resolution-1)) << v7i,v6i,v4i;
+        F_out.row(new_f_xi + 2 + (new_f_yi+1) * (resolution-1)) << v4i,v5i,v7i;
+        F_out.row(new_f_xi + 3 + (new_f_yi+1) * (resolution-1)) << v8i,v7i,v5i;
+        
+        
+      }
+    }
+}
+
+
+template <typename T>
+void upsample(const unsigned int levels, const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& V, const Eigen::MatrixXi& F, Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& V_out, Eigen::MatrixXi& F_out)
+{
+    if (levels < 1)
+    {
+      V_out = V;
+      F_out = F;
+      return;
+    }
+    
+    Eigen::MatrixXi F_in = F;
+    Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> V_in = V;
+    
+    for (unsigned int i = 0; i < levels; ++i)
+    {
+      upsample(V_in, F_in, V_out, F_out);
+      F_in = F_out;
+      V_in = V_out;
+    }
 }
 
 template <typename T>
@@ -71,7 +171,7 @@ void Mesh<T>::align_to_point_cloud(const Eigen::Matrix<T, Rows, Cols>& P)
     JtJ[li].resize(resolution);
     Jtz[li].resize(resolution);
 
-  #pragma omp parallel for
+  //#pragma omp parallel for
     for (int z_step = 0; z_step < resolution; ++z_step)
     {
       for (int x_step = 0; x_step < resolution; ++x_step)
@@ -88,7 +188,7 @@ void Mesh<T>::align_to_point_cloud(const Eigen::Matrix<T, Rows, Cols>& P)
       }
     }
     
-  #pragma omp parallel for
+  //#pragma omp parallel for
     for (int y_step = 0; y_step < resolution-1; ++y_step)
     {
       for (int x_step = 0; x_step < resolution-1; ++x_step)
@@ -127,13 +227,13 @@ void Mesh<T>::get_mesh(const unsigned int level, Eigen::Matrix<T, Eigen::Dynamic
   }
   else
   {    
-    igl::upsample(V[0], F[0], V_out, F_out, level);
+    upsample(level, V[0], F[0], V_out, F_out);
     
     for (unsigned int li = 1; li <= level; ++li)
     {
       Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> V_upsampled;
       Eigen::MatrixXi F_upsampled;
-      igl::upsample(V[li], F[li], V_upsampled, F_upsampled, level-li);
+      upsample(level-li, V[li], F[li], V_upsampled, F_upsampled);
       
        V_out.col(1) += V_upsampled.col(1);
     }
@@ -162,28 +262,31 @@ void Mesh<T>::project_points(const int level, Eigen::Matrix<T, Eigen::Dynamic, E
 {
   bc = Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>::Zero(current_target_point_cloud.rows(), 3);
   
-  const auto& Vl = V[level];
+  Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> Vl;
+  Eigen::MatrixXi Fl;
+  get_mesh(level, Vl, Fl);
   
   const int resolution = subdivided_side_length(level, MESH_RESOLUTION);
   
   // Upper left triangle. Used to compute the index of the triangle that is hit
-  const Eigen::Matrix<T, 2, 1> V_00(Vl.row(0)(0), Vl.row(0)(2));
-  const Eigen::Matrix<T, 2, 1> V_01(Vl.row(1)(0), Vl.row(1)(2));
-  const Eigen::Matrix<T, 2, 1> V_10(Vl.row(resolution)(0), Vl.row(resolution)(2));
+  const Eigen::Matrix<T, 2, 1> V_ul(Vl.row(0)(0), Vl.row(0)(2));
+  const Eigen::Matrix<T, 2, 1> V_00(Vl.row(Fl.row(0)(0))(0), Vl.row(Fl.row(0)(0))(2));
+  const Eigen::Matrix<T, 2, 1> V_01(Vl.row(Fl.row(0)(1))(0), Vl.row(Fl.row(0)(1))(2));
+  const Eigen::Matrix<T, 2, 1> V_10(Vl.row(Fl.row(0)(2))(0), Vl.row(Fl.row(0)(2))(2));
   
   const double dx = (V_01- V_00).norm();
   const double dy = (V_10 - V_00).norm();
   
-#pragma omp parallel for
+//#pragma omp parallel for
   for (int pi = 0; pi < current_target_point_cloud.rows(); ++pi)
   {
     const Eigen::Matrix<T, 2, 1> current_point(current_target_point_cloud.row(pi)(0), current_target_point_cloud.row(pi)(2));
-    const Eigen::Matrix<T, 2, 1> offset(current_point - V_00);
+    const Eigen::Matrix<T, 2, 1> offset(current_point - V_ul);
     
     const int c = static_cast<int>(offset(0) / dx);
     const int r = static_cast<int>(offset(1) / dy);
     
-    const int inner_size = (level+1) * (MESH_RESOLUTION-1);
+    const int inner_size = resolution - 1;
     if (c >= inner_size || r >= inner_size)
     {
       bc.row(pi) << -1, T(0.0), T(0.0);
@@ -250,6 +353,72 @@ void Mesh<T>::update_weights(const int level, const Eigen::Matrix<T, Eigen::Dyna
 }
 
 template <typename T>
+void Mesh<T>::debug(igl::opengl::glfw::Viewer &viewer)
+{
+      using TvecC3 = Eigen::Matrix<T, 3, 1>;
+    using TMat = Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>;    
+    Eigen::MatrixXd C(1, 3); C << 1.0, 0., 0.;
+    viewer.data().clear();
+    viewer.data().point_size = 5;
+    Eigen::MatrixXd vertices;
+    Eigen::MatrixXi faces;
+    get_mesh(1, vertices, faces);
+    viewer.data().add_points(current_target_point_cloud.row(0), C);
+
+
+        TMat bc;
+    project_points(1, bc);
+
+    TvecC3 v0 = vertices.row(faces.row(static_cast<int>(bc.row(0)(0)))(0));
+    TvecC3 v1 = vertices.row(faces.row(static_cast<int>(bc.row(0)(0)))(1));
+    TvecC3 v2 = vertices.row(faces.row(static_cast<int>(bc.row(0)(0)))(2));
+    
+    Eigen::MatrixXd points(3,3);
+    points.row(0) << v0.transpose();
+    points.row(1) << v1.transpose();
+    points.row(2) << v2.transpose();
+    viewer.data().add_points(points, C);
+    
+    viewer.data().set_mesh(vertices, faces);
+    viewer.data().compute_normals();
+    viewer.data().invert_normals = true;
+    
+   /* Eigen::MatrixXd C(1, 3); C << 1.0, 0., 0.;
+    viewer.data().clear();
+    viewer.data().point_size = 5;
+    
+        Eigen::MatrixXd vertices;
+    Eigen::MatrixXi faces;
+    
+    get_mesh(0, vertices, faces);
+   TvecC3 v0 = vertices.row(faces.row(static_cast<int>(0))(0));
+   TvecC3 v1 = vertices.row(faces.row(static_cast<int>(0))(1));
+   TvecC3  v2 = vertices.row(faces.row(static_cast<int>(0))(2));
+    
+    TMat points(3,3);
+    points.row(0) << v0.transpose();
+    points.row(1) << v1.transpose();
+    points.row(2) << v2.transpose();
+    std::cout << points << std::endl;
+    
+    viewer.data().add_points(points, C);
+    
+        get_mesh(1, vertices, faces);
+    v0 = vertices.row(faces.row(static_cast<int>(0))(0));
+    v1 = vertices.row(faces.row(static_cast<int>(0))(1));
+    v2 = vertices.row(faces.row(static_cast<int>(0))(2));
+    
+    points.resize(3,3);
+    points.row(0) << v0.transpose();
+    points.row(1) << v1.transpose();
+    points.row(2) << v2.transpose();
+    std::cout << points << std::endl;
+
+    viewer.data().add_points(points, C);*/
+    
+}
+
+template <typename T>
 void Mesh<T>::solve(const int iterations)
 {
   using TMat = Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>;
@@ -285,7 +454,8 @@ void Mesh<T>::solve(const int iterations)
       
       if (pi == 0)
       {
-        std::cout << measured_point << std::endl << solved_point<< std::endl << std::endl;
+        //std::cout << measured_point << std::endl << solved_point<< std::endl << std::endl;
+        //std::cout << v0 << std::endl << v1 <<std::endl << v2 <<std::endl <<std::endl;
       }
       
       point_with_residual_height.row(pi) = measured_point - solved_point;
@@ -337,7 +507,7 @@ void Mesh<T>::sor_parallel(const int iterations, const int level, Eigen::Ref<Eig
     
   for(int it = 0; it < iterations; it++)
   {
-#pragma omp parallel for collapse(2)
+//#pragma omp parallel for collapse(2)
     for (int x = 0; x < resolution; x+=2)
       for (int y = 0; y < resolution; y+=2)
       {
@@ -345,7 +515,7 @@ void Mesh<T>::sor_parallel(const int iterations, const int level, Eigen::Ref<Eig
         sor_inner(vi, JtJ[level], Jtz_vec, h);
       }
 
-#pragma omp parallel for collapse(2)    
+//#pragma omp parallel for collapse(2)    
     for (int x = 1; x < resolution; x+=2)
       for (int y = 0; y < resolution; y+=2)
       {
@@ -353,7 +523,7 @@ void Mesh<T>::sor_parallel(const int iterations, const int level, Eigen::Ref<Eig
         sor_inner(vi, JtJ[level], Jtz_vec, h);
       }
 
-#pragma omp parallel for collapse(2)
+//#pragma omp parallel for collapse(2)
     for (int x = 0; x < resolution; x+=2)
       for (int y = 1; y < resolution; y+=2)
       {
@@ -361,7 +531,7 @@ void Mesh<T>::sor_parallel(const int iterations, const int level, Eigen::Ref<Eig
         sor_inner(vi, JtJ[level], Jtz_vec, h);
       }
       
-#pragma omp parallel for collapse(2)
+//#pragma omp parallel for collapse(2)
     for (int x = 1; x < resolution; x+=2)
       for (int y = 1; y < resolution; y+=2)
       {
