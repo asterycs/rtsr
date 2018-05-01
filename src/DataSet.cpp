@@ -106,7 +106,7 @@ bool DataSet::get_next_point_cloud(Eigen::MatrixXd& points, Eigen::MatrixXd &col
     colors.resize(width*height, 3);
     
     int rowcntr = 0;
-//#pragma omp parallel for
+#pragma omp parallel for
     for (int y = 0; y < height; ++y)
     {
       for (int x = 0; x < width; ++x)
@@ -125,7 +125,7 @@ bool DataSet::get_next_point_cloud(Eigen::MatrixXd& points, Eigen::MatrixXd &col
         Eigen::RowVector4d world_point = camera_point.transpose();
         unsigned char* color = rgb + (x+y*rgb_width)*rgb_bpp;
         
-//#pragma omp critical
+#pragma omp critical
         {
           points.row(rowcntr) << world_point[0], world_point[2], world_point[1];
           colors.row(rowcntr) << (float)color[0]/255, (float)color[1]/255, (float)color[2]/255;

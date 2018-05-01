@@ -10,10 +10,10 @@
 
 // Number of vertices along one dimension
 #define MESH_RESOLUTION 2
-// Scale factor. 1 makes the mesh the same size as the bb of the
-// pc given to align_to_point_cloud
-#define MESH_SCALING_FACTOR 1.1
-#define MESH_LEVELS 2
+// Scale factor. 1 makes the mesh the same size as the bounding box of the
+// point cloud given to align_to_point_cloud
+#define MESH_SCALING_FACTOR 1.3
+#define MESH_LEVELS 8
 
 template <typename T>
 class Mesh
