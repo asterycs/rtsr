@@ -108,7 +108,10 @@ void reload_viewer_data(igl::opengl::glfw::Viewer &viewer, const Eigen::MatrixXd
     viewer.data().clear();
     viewer.data().point_size = 5;
     viewer.data().add_points(pc, C);
-    viewer.data().set_mesh(mesh.vertices(viewer_mesh_level), mesh.faces(viewer_mesh_level));
+    Eigen::MatrixXd vertices;
+    Eigen::MatrixXi faces;
+    mesh.get_mesh(mesh_level, vertices, faces);
+    viewer.data().set_mesh(vertices, faces);
     viewer.data().compute_normals();
     viewer.data().invert_normals = true;
 }
@@ -125,8 +128,11 @@ bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int
 {
   if (key == '1')
   {
-    mesh.iterate();
-    viewer.data().set_mesh(mesh.vertices(viewer_mesh_level), mesh.faces(viewer_mesh_level));
+    mesh.solve(10);
+    Eigen::MatrixXd vertices;
+    Eigen::MatrixXi faces;
+    mesh.get_mesh(viewer_mesh_level, vertices, faces);
+    viewer.data().set_mesh(vertices, faces);
     viewer.data().compute_normals();
     viewer.data().invert_normals = true;
   }
