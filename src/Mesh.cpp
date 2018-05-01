@@ -76,8 +76,15 @@ void Mesh<T>::align_to_point_cloud(const Eigen::Matrix<T, Rows, Cols>& P)
     {
       for (int x_step = 0; x_step < resolution; ++x_step)
       {
-        Eigen::Matrix<T, 1, 4> v; v << TvecR3(x_step-T(resolution-1)/2.f,1.f, z_step-T(resolution-1)/2.f),1.f;
-        V[li].row(x_step + z_step*resolution) << (v * scaling.matrix().transpose() * transform.transpose()).template head<3>();
+        Eigen::Matrix<T, 1, 4> v; v << TvecR3(x_step-T(resolution-1)/2.f,T(0.0), z_step-T(resolution-1)/2.f),T(1.0);
+        Eigen::Matrix<T, 1, 3> pos;
+        
+        if (li == 0) // Only transform the first layer. Subsequent layers only denot a difference between the first
+          pos << (v * scaling.matrix().transpose() * transform.transpose()).template head<3>();
+        else
+          pos << (v * scaling.matrix().transpose()).template head<3>();
+   
+        V[li].row(x_step + z_step*resolution) << pos;
       }
     }
     
@@ -131,7 +138,6 @@ void Mesh<T>::get_mesh(const unsigned int level, Eigen::Matrix<T, Eigen::Dynamic
        V_out.col(1) += V_upsampled.col(1);
     }
   }
-
 }
 
 template <typename T>
