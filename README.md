@@ -15,6 +15,11 @@ cd build/
 cmake ../
 make
 ```
+3.5
+Multiresolution fusion implemented according to the residual scheme explained in the paper. Use '0' and '+' to change rendered resolution.
+
+24.4
+Parallel successive over-relaxed solver implemented. Not sure about correctness but converges to similar solution as sequential version.
 
 13.4
 Demo with two point clouds for midterm presentation.
