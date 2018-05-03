@@ -1,7 +1,6 @@
 #include "Mesh.hpp"
 
-#include "igl/fit_plane.h"
-#include "igl/mat_min.h"
+#include "igl/barycentric_coordinates.h"
 
 #include <Eigen/QR>
 
@@ -20,15 +19,9 @@ Mesh<T>::~Mesh()
   
 }
 
-// There must be a formula for this
-int subdivided_side_length(const int level, const int base_resolution)
+inline int subdivided_side_length(const int level, const int base_resolution)
 {
-  int res = base_resolution;
-  
-  for (int i = 0; i < level; ++i)
-    res += res-1;
-  
-  return res;
+  return (base_resolution-1)*static_cast<int>(std::pow(2,level))+1;
 }
 
 template <typename T>
@@ -43,6 +36,7 @@ void upsample(const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& V, const E
     F_out = Eigen::MatrixXi::Zero(faces, 3);
     V_out = Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>::Zero(vertices, 3);
         
+#pragma omp parallel for
     for (int y_step = 0; y_step < old_resolution-1; ++y_step)
     {
       for (int x_step = 0; x_step < old_resolution-1; ++x_step)
@@ -106,11 +100,11 @@ void upsample(const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& V, const E
         const int new_f_xi = x_step * 2;
         const int new_f_yi = y_step * 2;
         
-        F_out.row(2*new_f_xi       + new_f_yi * (resolution-1) * 2) << v0i,v1i,v3i;
+        F_out.row(2*new_f_xi     + new_f_yi * (resolution-1) * 2) << v0i,v1i,v3i;
         F_out.row(2*new_f_xi + 1 + new_f_yi * (resolution-1) * 2) << v4i,v3i,v1i;
         F_out.row(2*new_f_xi + 2 + new_f_yi * (resolution-1) * 2) << v1i,v2i,v4i;
         F_out.row(2*new_f_xi + 3 + new_f_yi * (resolution-1) * 2) << v5i,v4i,v2i;
-        F_out.row(2*new_f_xi +       (new_f_yi+1) * (resolution-1)*2) << v3i,v4i,v6i;
+        F_out.row(2*new_f_xi +     (new_f_yi+1) * (resolution-1)*2) << v3i,v4i,v6i;
         F_out.row(2*new_f_xi + 1 + (new_f_yi+1) * (resolution-1)*2) << v7i,v6i,v4i;
         F_out.row(2*new_f_xi + 2 + (new_f_yi+1) * (resolution-1)*2) << v4i,v5i,v7i;
         F_out.row(2*new_f_xi + 3 + (new_f_yi+1) * (resolution-1)*2) << v8i,v7i,v5i;
@@ -380,6 +374,7 @@ void Mesh<T>::solve(const int iterations)
     get_mesh(li, V_upsampled, F_upsampled);
     project_points(li, bc);
     
+#pragma omp parallel for
     for (int pi = 0; pi < bc.rows(); ++pi)
     {
       if (static_cast<int>(bc.row(pi)(0)) == -1) // No hit
