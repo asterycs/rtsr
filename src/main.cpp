@@ -16,7 +16,7 @@
 #include <sstream>
 
 int viewer_mesh_level = 0;
-Mesh<double> mesh;
+Mesh<float> mesh;
 Eigen::MatrixXd P, P2, current_target, C;
 DataSet *ds;
 
@@ -108,10 +108,10 @@ void reload_viewer_data(igl::opengl::glfw::Viewer &viewer, const Eigen::MatrixXd
     viewer.data().clear();
     viewer.data().point_size = 5;
     viewer.data().add_points(pc, C);
-    Eigen::MatrixXd vertices;
+    Eigen::MatrixXf vertices;
     Eigen::MatrixXi faces;
     mesh.get_mesh(mesh_level, vertices, faces);
-    viewer.data().set_mesh(vertices, faces);
+    viewer.data().set_mesh(vertices.cast<double>(), faces);
     viewer.data().compute_normals();
     viewer.data().invert_normals = true;
 }
@@ -126,10 +126,10 @@ bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int
   if (key == '1')
   {
     mesh.solve(10);
-    Eigen::MatrixXd vertices;
+    Eigen::MatrixXf vertices;
     Eigen::MatrixXi faces;
     mesh.get_mesh(viewer_mesh_level, vertices, faces);
-    viewer.data().set_mesh(vertices, faces);
+    viewer.data().set_mesh(vertices.cast<double>(), faces);
     viewer.data().compute_normals();
     viewer.data().invert_normals = true;
   }
@@ -146,12 +146,13 @@ bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int
     }else
       current_target = P2;
       
-    mesh.set_target_point_cloud(current_target);
+    Eigen::MatrixXf cf = current_target.cast<float>();
+    mesh.set_target_point_cloud(cf);
     reload_viewer_data(viewer, current_target, C, viewer_mesh_level);
     
   }
   
-  if (key == '3' && ds)
+ /* if (key == '3' && ds)
   {
     Eigen::Matrix4d t_camera;
     for (int i = 0; i < 5; ++i)
@@ -164,7 +165,7 @@ bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int
     }
     reload_viewer_data(viewer, current_target, C, viewer_mesh_level);
     
-  }
+  }*/
   
   if (key == '0')
   {
@@ -204,9 +205,9 @@ int main(int argc, char* argv[]) {
       generate_example_point_cloud2(P, id1, id2);
       split_point_cloud(P, current_target, P2, id1, id2);
     }
-    
-    mesh.align_to_point_cloud(P); // Resets the mesh everytime it is called
-    mesh.set_target_point_cloud(current_target);
+
+    mesh.align_to_point_cloud(P.cast<float>().eval()); // Resets the mesh everytime it is called
+    mesh.set_target_point_cloud(current_target.cast<float>().eval());
     
     igl::opengl::glfw::Viewer viewer;    
     viewer.callback_key_down = callback_key_down;

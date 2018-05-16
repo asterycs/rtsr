@@ -392,7 +392,8 @@ void Mesh<T>::solve(const int iterations)
     }
     
     update_weights(li, bc, point_with_residual_height.col(1));
-    sor_parallel(iterations, li, V[li].col(1));
+    //sor_parallel(iterations, li, V[li].col(1));
+    parallel_gpu_solve(iterations, li, V[li].col(1));
   }
 }
 
@@ -433,6 +434,7 @@ template <typename T>
 void Mesh<T>::sor_parallel(const int iterations, const int level, Eigen::Ref<Eigen::Matrix<T, Eigen::Dynamic, 1>> h) const
 {
   const auto& Jtz_vec = Jtz[level].get_vec();
+  const auto& Jtj_mat = JtJ[level];
   const int resolution = subdivided_side_length(level, MESH_RESOLUTION);
     
   for(int it = 0; it < iterations; it++)
@@ -442,7 +444,7 @@ void Mesh<T>::sor_parallel(const int iterations, const int level, Eigen::Ref<Eig
       for (int y = 0; y < resolution; y+=2)
       {
         const int vi = x + y * resolution;
-        sor_inner(vi, JtJ[level], Jtz_vec, h);
+        sor_inner(vi, Jtj_mat, Jtz_vec, h);
       }
 
 #pragma omp parallel for collapse(2)    
@@ -450,7 +452,7 @@ void Mesh<T>::sor_parallel(const int iterations, const int level, Eigen::Ref<Eig
       for (int y = 0; y < resolution; y+=2)
       {
         const int vi = x + y * resolution;
-        sor_inner(vi, JtJ[level], Jtz_vec, h);
+        sor_inner(vi, Jtj_mat, Jtz_vec, h);
       }
 
 #pragma omp parallel for collapse(2)
@@ -458,7 +460,7 @@ void Mesh<T>::sor_parallel(const int iterations, const int level, Eigen::Ref<Eig
       for (int y = 1; y < resolution; y+=2)
       {
         const int vi = x + y * resolution;
-        sor_inner(vi, JtJ[level], Jtz_vec, h);
+        sor_inner(vi, Jtj_mat, Jtz_vec, h);
       }
       
 #pragma omp parallel for collapse(2)
@@ -466,7 +468,229 @@ void Mesh<T>::sor_parallel(const int iterations, const int level, Eigen::Ref<Eig
       for (int y = 1; y < resolution; y+=2)
       {
         const int vi = x + y * resolution;
-        sor_inner(vi, JtJ[level], Jtz_vec, h);
+        sor_inner(vi, Jtj_mat, Jtz_vec, h);
       }
   }
 }
+
+__device__ inline float matget(float* mat, const int x, const int y, const int w) {
+	return mat[x + y * w];
+}
+
+__device__ void get_matrix_values_for_vertex(float* mat, const int vi, const int mesh_width, float* vals1, float* vals2, int* ids1, int* ids2, float& a, const int resolution) {
+	const int vxi = vi % mesh_width;
+	const int vyi = vi / mesh_width;
+
+	const int x = vxi * 2;
+	const int y = vyi * 2;
+
+	// Clockwise ordering
+
+	if (vxi - 1 >= 0)
+	{
+		vals1[0] = matget(mat, x - 1, y, resolution);
+		ids1[0] = vi - 1;
+	}
+	else
+	{
+		vals1[0] = 0.0;
+		ids1[0] = 0;
+	}
+
+	if (vyi - 1 >= 0)
+	{
+		vals1[1] = matget(mat, x, y - 1, resolution);
+		ids1[1] = vi - mesh_width;
+	}
+	else
+	{
+		vals1[1] = 0.0;
+		ids1[1] = 0;
+	}
+
+	if (vxi + 1 < mesh_width && vyi - 1 >= 0)
+	{
+		vals1[2] = matget(mat, x + 1, y - 1, resolution);
+		ids1[2] = vi - mesh_width + 1;
+	}
+	else
+	{
+		vals1[2] = 0.0;
+		ids1[2] = 0;
+	}
+
+	if (vxi + 1 < mesh_width)
+	{
+		vals2[0] = matget(mat, x + 1, y, resolution);
+		ids2[0] = vi + 1;
+	}
+	else
+	{
+		vals2[0] = 0.0;
+		ids2[0] = 0;
+	}
+
+	if (vyi + 1 < mesh_width)
+	{
+		vals2[1] = matget(mat, x, y + 1, resolution);
+		ids2[1] = vi + mesh_width;
+	}
+	else
+	{
+		vals2[1] = 0.0;
+		ids2[1] = 0;
+	}
+
+	if (vxi - 1 >= 0 && vyi + 1 < mesh_width)
+	{
+		vals2[2] = matget(mat, x - 1, y + 1, resolution);
+		ids2[2] = vi + mesh_width - 1;
+	}
+	else
+	{
+		vals2[2] = 0.0;
+		ids2[2] = 0;
+	}
+
+	a = matget(mat, x, y, resolution);
+}
+
+__device__ void inner(const int vi, const int mesh_width, float* Jtz_vec, float* JtJ_mat, float* h, const int resolution) {
+	float xn = Jtz_vec[vi];
+	float acc = 0.0f;
+
+	float vals1[3], vals2[3];
+	int ids1[3], ids2[3];
+
+	float a;
+	get_matrix_values_for_vertex(JtJ_mat, vi, mesh_width, vals1, vals2, ids1, ids2, a, resolution);
+
+	for (int j = 0; j < 3; j++) {
+		acc += vals1[j] * h[ids1[j]];
+		acc += vals2[j] * h[ids2[j]];
+	}
+
+	xn -= acc;
+
+	const float w = 1.0f;
+	h[vi] = (1 - w) * h[vi] + w * xn / a;
+}
+
+
+
+__global__ void first_solve(const int mesh_width, float* Jtz_vec, float* JtJ_mat, float* h, const int resolution) {
+	int idx = blockIdx.x * blockDim.x + threadIdx.x;
+	if (idx >= (resolution / 2) * (resolution / 2)) {
+		return;
+	}
+
+	int x = (idx % (resolution / 2)) * 2;
+	int y = (idx / (resolution / 2)) * 2;
+	int vi = x + y * resolution;
+
+	if (x + y * resolution >= resolution * resolution)
+		return;
+
+	if (x % 2 == 0 && y % 2 == 0) {
+		inner(vi, mesh_width, Jtz_vec, JtJ_mat, h, resolution);
+	}
+}
+
+__global__ void second_solve(const int mesh_width, float* Jtz_vec, float* JtJ_mat, float* h, const int resolution) {
+	int idx = blockIdx.x * blockDim.x + threadIdx.x;
+	if (idx >= (resolution/2) * (resolution/2))
+  {
+		return;
+	}
+
+	int x = (idx % (resolution / 2)) * 2 + 1;
+	int y = (idx / (resolution / 2)) * 2;
+	int vi = x + y * resolution;
+
+	if (x + y * resolution >= resolution * resolution)
+		return;
+
+	if (x % 2 == 1 && y % 2 == 0) {
+		inner(vi, mesh_width, Jtz_vec, JtJ_mat, h, resolution);
+	}
+}
+
+__global__ void third_solve(const int mesh_width, float* Jtz_vec, float* JtJ_mat, float* h, const int resolution) {
+	int idx = blockIdx.x * blockDim.x + threadIdx.x;
+	if (idx >= (resolution / 2) * (resolution / 2)) {
+		return;
+	}
+
+	int x = (idx % (resolution / 2)) * 2;
+	int y = (idx / (resolution / 2)) * 2 + 1;
+	int vi = x + y * resolution;
+
+	if (x + y * resolution >= resolution * resolution)
+		return;
+
+	if (x % 2 == 0 && y % 2 == 1) {
+		inner(vi, mesh_width, Jtz_vec, JtJ_mat, h, resolution);
+	}
+}
+
+__global__ void fourth_solve(const int mesh_width, float* Jtz_vec, float* JtJ_mat, float* h, const int resolution) {
+	int idx = blockIdx.x * blockDim.x + threadIdx.x;
+	if (idx >= (resolution / 2) * (resolution / 2)) {
+		return;
+	}
+
+	int x = (idx % (resolution / 2)) * 2 + 1;
+	int y = (idx / (resolution / 2)) * 2 + 1;
+	int vi = x + y * resolution;
+
+	if (x + y * resolution >= resolution * resolution)
+		return;
+
+	if (x % 2 == 1 && y % 2 == 1) {
+		inner(vi, mesh_width, Jtz_vec, JtJ_mat, h, resolution);
+	}
+}
+
+template <typename T>
+void Mesh<T>::parallel_gpu_solve(const int iterations, const int level, Eigen::Ref<Eigen::Matrix<T, Eigen::Dynamic, 1>> h) {
+  const T* Jtz_vec = Jtz[level].get_vec().data();
+  const T* JtJ_mat = JtJ[level].get_mat().data();
+  const int resolution = subdivided_side_length(level, MESH_RESOLUTION);
+
+	float* hvec = new float[h.rows()];
+	for (int i = 0; i < h.rows(); i++)
+        hvec[i] = h(i);
+
+	// Prepare device variables
+	float *devJtz, *devJtJ, *devH;
+	cudaMalloc(&devJtz, Jtz[level].get_vec().rows() * sizeof(float));
+	cudaMalloc(&devJtJ, JtJ[level].get_width()*JtJ[level].get_width() * sizeof(float));
+	cudaMalloc(&devH, h.rows() * sizeof(float));
+
+	cudaMemcpy(devJtz, Jtz_vec, Jtz[level].get_vec().rows() * sizeof(float), cudaMemcpyHostToDevice);
+	cudaMemcpy(devJtJ, JtJ_mat, JtJ[level].get_width()*JtJ[level].get_width() * sizeof(float), cudaMemcpyHostToDevice);
+	cudaMemcpy(devH, hvec, h.rows() * sizeof(float), cudaMemcpyHostToDevice);
+
+	for (int it = 0; it < iterations; it++) {
+		first_solve<<<resolution, 1>>>(JtJ[level].get_width(), devJtz, devJtJ, devH, resolution);
+		cudaDeviceSynchronize();
+		second_solve<<<resolution, 1>>>(JtJ[level].get_width(), devJtz, devJtJ, devH, resolution);
+		cudaDeviceSynchronize();
+		third_solve<<<resolution, 1 >>>(JtJ[level].get_width(), devJtz, devJtJ, devH, resolution);
+		cudaDeviceSynchronize();
+		fourth_solve<<<resolution, 1>>>(JtJ[level].get_width(), devJtz, devJtJ, devH, resolution);
+		cudaDeviceSynchronize();
+	}
+
+	cudaMemcpy(hvec, devH, h.rows() * sizeof(float), cudaMemcpyDeviceToHost);
+	cudaFree(devH);
+	cudaFree(devJtz);
+	cudaFree(devJtJ);
+
+	for (int i = 0; i < h.size(); i++)
+        h(i) = hvec[i];
+
+	delete[] hvec;
+}
+
+

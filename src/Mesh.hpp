@@ -12,8 +12,8 @@
 #define MESH_RESOLUTION 2
 // Scale factor. 1 makes the mesh the same size as the bounding box of the
 // point cloud given to align_to_point_cloud
-#define MESH_SCALING_FACTOR 3
-#define MESH_LEVELS 10
+#define MESH_SCALING_FACTOR 1.2
+#define MESH_LEVELS 5
 
 template <typename T>
 class Mesh
@@ -31,8 +31,6 @@ public:
   
   void get_mesh(const unsigned int level, Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& V_out, Eigen::MatrixXi& F_out) const;
   
-  void debug(igl::opengl::glfw::Viewer &viewer);
-  
 private:
   std::vector<JtJMatrixGrid<T>, Eigen::aligned_allocator<JtJMatrixGrid<T>>> JtJ;
   std::vector<JtzVector<T>, Eigen::aligned_allocator<JtzVector<T>>> Jtz;
@@ -44,6 +42,7 @@ private:
 
   void sor(const int iterations, const int level, Eigen::Ref<Eigen::Matrix<T, Eigen::Dynamic, 1>> h) const;
   void sor_parallel(const int iterations, const int level, Eigen::Ref<Eigen::Matrix<T, Eigen::Dynamic, 1>> h) const;
+ void parallel_gpu_solve(const int iterations, const int level, Eigen::Ref<Eigen::Matrix<T, Eigen::Dynamic, 1>> h);
   
   void project_points(const int level, Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& bc) const;
   void update_weights(const int level, const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& bc, const Eigen::Matrix<T, Eigen::Dynamic, 1>& z);
