@@ -15,6 +15,10 @@ cd build/
 cmake ../
 make
 ```
+17.5
+Merged CUDA solver.
+cmake flag -DENABLE_CUDA=ON enables the CUDA features.
+
 3.5
 Multiresolution fusion implemented according to the residual scheme explained in the paper. Use '0' and '+' to change rendered resolution.
 

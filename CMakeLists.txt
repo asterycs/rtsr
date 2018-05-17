@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(rtsr)
 
-set(ENABLE_CUDA ON CACHE BOOL "Enable Cuda features")
+set(ENABLE_CUDA OFF CACHE BOOL "Enable Cuda features")
 
 # Set project language
 if (ENABLE_CUDA)
