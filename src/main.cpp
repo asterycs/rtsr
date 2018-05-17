@@ -15,10 +15,24 @@
 #include <fstream>
 #include <sstream>
 
+#include "igl/readPLY.h"
+
 int viewer_mesh_level = 0;
 Mesh<double> mesh;
 Eigen::MatrixXd P, P2, current_target;
 DataSet *ds;
+
+
+Eigen::MatrixXd V;
+Eigen::MatrixXi F;
+Eigen::MatrixXd N;
+Eigen::MatrixXd UV;
+Eigen::MatrixXd VC;
+
+Eigen::Matrix<unsigned char,  Eigen::Dynamic, Eigen::Dynamic> texture_red;
+Eigen::Matrix<unsigned char,  Eigen::Dynamic, Eigen::Dynamic> texture_green;
+Eigen::Matrix<unsigned char,  Eigen::Dynamic, Eigen::Dynamic> texture_blue;
+
 
 template <typename T>
 void split_point_cloud(const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& P, Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& P1, Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& P2, const Eigen::Matrix<int, Eigen::Dynamic, 1>& id1, Eigen::Matrix<int, Eigen::Dynamic, 1>& id2)
@@ -110,10 +124,16 @@ void reload_viewer_data(igl::opengl::glfw::Viewer &viewer, const Eigen::MatrixXd
     viewer.data().add_points(pc, C);
     Eigen::MatrixXd vertices;
     Eigen::MatrixXi faces;
+
+
     mesh.get_mesh(mesh_level, vertices, faces);
     viewer.data().set_mesh(vertices, faces);
     viewer.data().compute_normals();
     viewer.data().invert_normals = true;
+
+    viewer.data().set_texture(texture_red, texture_green, texture_blue);
+    viewer.data().set_uv(UV);
+    viewer.data().show_texture = true;
 }
 
 void reload_viewer_data(igl::opengl::glfw::Viewer &viewer, const Eigen::MatrixXd pc, const unsigned int mesh_level)
@@ -180,7 +200,7 @@ int main(int argc, char* argv[]) {
     // Read points and normals
     // igl::readOFF(argv[1],P,F,N);
     
-    Eigen::MatrixXd C(1, 3);
+    /*Eigen::MatrixXd C(1, 3);
     C << 0.f,0.7f,0.7f;
         
     if (argc > 2)
@@ -218,5 +238,92 @@ int main(int argc, char* argv[]) {
       ImGui::Text("Current mesh level: %d", viewer_mesh_level);
     };
     
+    viewer.launch();*/
+
+    // Load a mesh in OFF format
+    std::vector<std::vector<double > > VList;
+    std::vector<std::vector<int > > FList;
+    std::vector<std::vector<double > > NList;
+    std::vector<std::vector<double > > CList;
+
+    const int texture_resolution = 30;
+    texture_red.resize(texture_resolution, texture_resolution);
+  
+    texture_green.resize(texture_resolution, texture_resolution);
+    texture_blue.resize(texture_resolution, texture_resolution);
+
+    const std::string str = argv[1];
+    igl::readOFF(str, VList, FList, NList, CList);
+
+    V.resize(VList.size(), 3);
+    VC.resize(CList.size(), 3);
+    UV.resize(texture_resolution*texture_resolution, 2);
+
+    for(int i=0; i<V.rows(); i++)
+    {
+      V(i, 0) = VList[i][0];
+      V(i, 1) = VList[i][1];
+      V(i, 2) = VList[i][2];
+
+      VC(i, 0) = CList[i][0];
+      VC(i, 1) = CList[i][1];
+      VC(i, 2) = CList[i][2];
+    }
+    Eigen::MatrixXi counter = Eigen::MatrixXi::Zero(texture_resolution, texture_resolution);
+    const Eigen::VectorXd bb_min = V.colwise().minCoeff();
+    const Eigen::VectorXd bb_max = V.colwise().maxCoeff();
+    double dx = (bb_max(0)-bb_min(0)) / (double)texture_resolution;
+    double dz = (bb_max(2)-bb_min(2)) / (double)texture_resolution;
+
+    for(int i=0; i<VC.rows(); i++)
+    { 
+      double x = V(i, 0) - bb_min(0);
+      double z = V(i, 2) - bb_min(2);
+      x = std::floor(x / dx);
+      z = std::floor(z / dz);
+      int count = counter(x, z);
+
+      texture_red(x, z) = (texture_red(x, z) * count + (VC(i, 0)*255)) / (count + 1);
+      texture_green(x, z) = (texture_green(x, z) * count + (VC(i, 1)*255)) / (count + 1);
+      texture_blue(x, z) = (texture_blue(x, z) * count + (VC(i, 2)*255)) / (count + 1);
+      counter(x, z) = counter(x, z) + 1;
+    }
+
+    //set UV coordinates
+    dx = 1.0/(texture_resolution-1);
+    for(int i=0; i<texture_resolution; i++)
+    {
+      for(int j=0; j<texture_resolution; j++)
+      {
+        int index = (j) * texture_resolution + i;
+        UV(index, 0) = i*dx;
+        UV(index, 1) = j*dx;
+      }
+    }
+
+    mesh.align_to_point_cloud(V); 
+    mesh.set_target_point_cloud(V);
+
+    // Plot the mesh
+    igl::opengl::glfw::Viewer viewer;
+
+    reload_viewer_data(viewer, V, VC, viewer_mesh_level);
+    viewer.core.align_camera_center(V);
+
+    igl::opengl::glfw::imgui::ImGuiMenu menu;
+    viewer.callback_key_down = callback_key_down;
+    viewer.plugins.push_back(&menu);
+
+    viewer.data().point_size = 2;
+    viewer.data().add_points(V, VC);
+
+    menu.callback_draw_viewer_menu = [&]()
+    {
+      ImGui::Text("Iterate: \"1\"");
+      ImGui::Text("Next point cloud: \"2\"");
+      ImGui::Text("Current mesh level: %d", viewer_mesh_level);
+    };
+    // viewer.core.align_camera_center(V,F);
     viewer.launch();
+
 }
