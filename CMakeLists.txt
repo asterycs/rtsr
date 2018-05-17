@@ -1,8 +1,16 @@
 cmake_minimum_required(VERSION 3.10)
 project(rtsr)
 
+set(ENABLE_CUDA ON CACHE BOOL "Enable Cuda features")
+
 # Set project language
-project(rtsr LANGUAGES CXX CUDA)
+if (ENABLE_CUDA)
+    project(rtsr LANGUAGES CXX CUDA)
+    add_definitions(-DENABLE_CUDA)
+else()
+    project(rtsr LANGUAGES CXX)
+    message("CUDA features disabled")
+endif(ENABLE_CUDA)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR})
