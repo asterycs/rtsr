@@ -140,8 +140,8 @@ void upsample(const unsigned int levels, const Eigen::Matrix<T, Eigen::Dynamic, 
 }
 
 template <typename T>
-template <int Rows, int Cols>
-void Mesh<T>::align_to_point_cloud(const Eigen::Matrix<T, Rows, Cols>& P)
+template <typename Derived>
+void Mesh<T>::align_to_point_cloud(const Eigen::MatrixBase<Derived>& P)
 {  
   using TvecR3 = Eigen::Matrix<T, 1, 3>;
   using TvecC3 = Eigen::Matrix<T, 3, 1>;

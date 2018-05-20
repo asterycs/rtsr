@@ -23,8 +23,8 @@ public:
   Mesh();
   ~Mesh();
   
-  template <int Rows, int Cols>
-  void align_to_point_cloud(const Eigen::Matrix<T, Rows, Cols>& P);// Basically resets the mesh
+  template <typename Derived>
+  void align_to_point_cloud(const Eigen::MatrixBase<Derived>& P);// Basically resets the mesh
   
   void set_target_point_cloud(const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& P);
   void solve(const int iterations);

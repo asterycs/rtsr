@@ -206,7 +206,7 @@ int main(int argc, char* argv[]) {
       split_point_cloud(P, current_target, P2, id1, id2);
     }
 
-    mesh.align_to_point_cloud(P.cast<float>().eval()); // Resets the mesh everytime it is called
+    mesh.align_to_point_cloud(P.cast<float>().eval());
     mesh.set_target_point_cloud(current_target.cast<float>().eval());
     
     igl::opengl::glfw::Viewer viewer;    
