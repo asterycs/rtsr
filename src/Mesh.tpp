@@ -486,3 +486,35 @@ void Mesh<T>::sor_parallel(const int iterations, const int level, Eigen::Ref<Eig
       }
   }
 }
+
+template <typename T> // Works only for float meshes
+void Mesh<T>::parallel_gpu_solve(const int, const int, Eigen::Ref<Eigen::Matrix<T, Eigen::Dynamic, 1>>) {
+
+    assert(false && "GPU wolver works only with float meshes");
+}
+
+template <>
+void Mesh<float>::parallel_gpu_solve(const int iterations, const int level, Eigen::Ref<Eigen::Matrix<float, Eigen::Dynamic, 1>> h) {
+  const JtzVector<float>& Jtz_vec = Jtz[level];
+  const JtJMatrixGrid<float>& JtJ_mat = JtJ[level];
+  
+  const int mesh_width_squared = JtJ_mat.get_mesh_width()*JtJ_mat.get_mesh_width();
+
+	float *devH;
+	CUDA_CHECK(cudaMalloc(&devH, h.rows() * sizeof(float)));
+	CUDA_CHECK(cudaMemcpy(devH, h.data(), h.rows() * sizeof(float), cudaMemcpyHostToDevice));
+	
+	for (int it = 0; it < iterations; it++) {
+		solve_kernel<<<mesh_width_squared, 1>>>(0, 0, Jtz_vec, JtJ_mat, devH);
+		cudaDeviceSynchronize();
+		solve_kernel<<<mesh_width_squared, 1>>>(1, 0, Jtz_vec, JtJ_mat, devH);
+		cudaDeviceSynchronize();
+		solve_kernel<<<mesh_width_squared, 1>>>(0, 1, Jtz_vec, JtJ_mat, devH);
+		cudaDeviceSynchronize();
+		solve_kernel<<<mesh_width_squared, 1>>>(1, 1, Jtz_vec, JtJ_mat, devH);
+		cudaDeviceSynchronize();
+	}
+	
+	CUDA_CHECK(cudaMemcpy(h.data(), devH, h.rows() * sizeof(float), cudaMemcpyDeviceToHost));
+	CUDA_CHECK(cudaFree(devH));
+}
