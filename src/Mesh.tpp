@@ -8,7 +8,9 @@
 #include <iostream>
 #include <cstdlib>
 
+#ifdef ENABLE_CUDA
 #include "CudaSolver.hpp"
+#endif
 
 template <typename T>
 Mesh<T>::Mesh()
@@ -19,7 +21,18 @@ Mesh<T>::Mesh()
 template <typename T>
 Mesh<T>::~Mesh()
 {
-  
+
+}
+
+template <typename T>
+void Mesh<T>::cleanup()
+{
+    cudaDeviceSynchronize();
+    for (auto& m : JtJ)
+        JtJ.clear();
+
+    for (auto& v : Jtz)
+        v.clear();
 }
 
 inline int subdivided_side_length(const int level, const int base_resolution)
@@ -367,11 +380,11 @@ void Mesh<T>::solve(const int iterations)
   project_points(0, bc);
   update_weights(0, bc, current_target_point_cloud.col(1));
 
-//#ifdef ENABLE_CUDA
+#ifdef ENABLE_CUDA
   parallel_gpu_solve(iterations, 0, V[0].col(1));
-//#else
-//  sor_parallel(iterations, 0, V[0].col(1));
-//#endif
+#else
+  sor_parallel(iterations, 0, V[0].col(1));
+#endif
   
   for (int li = 1; li < MESH_LEVELS; ++li)
   {
@@ -401,11 +414,11 @@ void Mesh<T>::solve(const int iterations)
     
     update_weights(li, bc, point_with_residual_height.col(1));
 
-//#ifdef ENABLE_CUDA
+#ifdef ENABLE_CUDA
       parallel_gpu_solve(iterations, li, V[li].col(1));
-//#else
-//      sor_parallel(iterations, li, V[li].col(1));
-//#endif
+#else
+      sor_parallel(iterations, li, V[li].col(1));
+#endif
   }
 }
 
@@ -485,6 +498,7 @@ void Mesh<T>::sor_parallel(const int iterations, const int level, Eigen::Ref<Eig
   }
 }
 
+#ifdef ENABLE_CUDA
 template <typename T>
 void Mesh<T>::parallel_gpu_solve(const int, const int, Eigen::Ref<Eigen::Matrix<T, Eigen::Dynamic, 1>>) {
 
@@ -503,17 +517,21 @@ void Mesh<float>::parallel_gpu_solve(const int iterations, const int level, Eige
     CUDA_CHECK(cudaMalloc(&devH, h.rows() * sizeof(float)));
     CUDA_CHECK(cudaMemcpy(devH, h.data(), h.rows() * sizeof(float), cudaMemcpyHostToDevice));
 
+    dim3 block(64);
+    dim3 grid((mesh_width_squared + block.x - 1) / block.x);
+
     for (int it = 0; it < iterations; it++) {
-	    solve_kernel<<<mesh_width_squared, 1>>>(0, 0, mesh_width, Jtz_vec, JtJ_mat, devH);
+	    solve_kernel<<<grid, grid>>>(0, 0, mesh_width, Jtz_vec, JtJ_mat, devH);
 	    cudaDeviceSynchronize();
-	    solve_kernel<<<mesh_width_squared, 1>>>(1, 0, mesh_width, Jtz_vec, JtJ_mat, devH);
+	    solve_kernel<<<grid, grid>>>(1, 0, mesh_width, Jtz_vec, JtJ_mat, devH);
 	    cudaDeviceSynchronize();
-	    solve_kernel<<<mesh_width_squared, 1>>>(0, 1, mesh_width, Jtz_vec, JtJ_mat, devH);
+	    solve_kernel<<<grid, grid>>>(0, 1, mesh_width, Jtz_vec, JtJ_mat, devH);
 	    cudaDeviceSynchronize();
-	    solve_kernel<<<mesh_width_squared, 1>>>(1, 1, mesh_width, Jtz_vec, JtJ_mat, devH);
+	    solve_kernel<<<grid, grid>>>(1, 1, mesh_width, Jtz_vec, JtJ_mat, devH);
 	    cudaDeviceSynchronize();
     }
 
     CUDA_CHECK(cudaMemcpy(h.data(), devH, h.rows() * sizeof(float), cudaMemcpyDeviceToHost));
     CUDA_CHECK(cudaFree(devH));
 }
+#endif

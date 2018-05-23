@@ -226,4 +226,7 @@ int main(int argc, char* argv[]) {
     };
     
     viewer.launch();
+
+    // cleanup
+    mesh.cleanup();
 }

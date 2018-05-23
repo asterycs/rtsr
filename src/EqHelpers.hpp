@@ -21,6 +21,12 @@ public:
     this->mesh_width = mesh_width;
   }
 
+  CUDA_HOST void clear()
+  {
+    CUDA_CHECK(cudaFree(vec));
+    this->mesh_width = 0;
+  }
+
   CUDA_HOST_DEVICE T get(const int idx) const
   {
     return vec[idx];
@@ -69,6 +75,13 @@ public:
     CUDA_CHECK(cudaMallocManaged((void**)&mat, (2*mesh_width-1)*(2*mesh_width-1)*sizeof(T)));
     this->mesh_width = mesh_width;
     this->matrix_width = (2*mesh_width-1);
+  }
+
+  CUDA_HOST void clear()
+  {
+    CUDA_CHECK(cudaFree(mat));
+    this->mesh_width = 0;
+    this->matrix_with = 0;
   }
   
  CUDA_HOST_DEVICE unsigned int get_mesh_width() const
