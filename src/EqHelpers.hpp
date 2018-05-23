@@ -104,15 +104,15 @@ public:
   
   CUDA_HOST_DEVICE void get_matrix_values_for_vertex(const int vi, T(&vals)[6], int(&ids)[6], T& a) const
   {
-    const int vxi = vi % mesh_width;
-    const int vyi = vi / mesh_width;
+    const int vri = vi % mesh_width;
+    const int vci = vi / mesh_width;
     
-    const int x = vxi * 2;
-    const int y = vyi * 2;
+    const int x = vri * 2;
+    const int y = vci * 2;
     
     // Clockwise ordering
         
-    if (vxi - 1 >= 0)
+    if (vri - 1 >= 0)
     {
       vals[0] = get(x - 1, y);
       ids[0] = vi - 1;
@@ -122,7 +122,7 @@ public:
       ids[0] = 0;
     }
 
-    if (vyi - 1 >= 0)
+    if (vci - 1 >= 0)
     {
       vals[1] = get(x, y - 1);
       ids[1] = vi - mesh_width;
@@ -132,7 +132,7 @@ public:
       ids[1] = 0;
     }
 
-    if (vxi + 1 < mesh_width && vyi - 1 >= 0)
+    if (vri + 1 < mesh_width && vci - 1 >= 0)
     {
       vals[2] = get(x+1, y-1);
       ids[2] = vi - mesh_width + 1;
@@ -142,7 +142,7 @@ public:
       ids[2] = 0;      
     }
 
-    if (vxi + 1 < mesh_width)
+    if (vri + 1 < mesh_width)
     {
       vals[3] = get(x+1, y);
       ids[3] = vi + 1;
@@ -152,7 +152,7 @@ public:
       ids[3] = 0;
     }
     
-    if (vyi +1 < mesh_width)
+    if (vci +1 < mesh_width)
     {
       vals[4] = get(x, y+1);
       ids[4] = vi + mesh_width;
@@ -162,7 +162,7 @@ public:
       ids[4] = 0;      
     }
     
-    if (vxi - 1 >= 0 && vyi + 1 < mesh_width)
+    if (vri - 1 >= 0 && vci + 1 < mesh_width)
     {
       vals[5] = get(x-1, y+1);
       ids[5] = vi + mesh_width - 1;     
@@ -195,18 +195,18 @@ public:
     // ...
     if (ti % 2 == 0)
     {     
-      const int vxidx = (ti % (2*(mesh_width - 1))) / 2; // Vertex index on the mesh
-      const int vyidx =  ti / (2*(mesh_width - 1));
+      const int vridx = (ti % (2*(mesh_width - 1))) / 2; // Vertex index on the mesh
+      const int vcidx =  ti / (2*(mesh_width - 1));
 
-      const int vidx = vxidx*2; // Index in the grid matrix, Figure 5(c) in the paper
-      const int vidy = vyidx*2;
+      const int vidr = vridx*2; // Index in the grid matrix, Figure 5(c) in the paper
+      const int vidc = vcidx*2;
       
-      update_if_present(vidx,vidy,                                    a*a);
-      update_if_present(vidx+2,vidy,                                  b*b);
-      update_if_present(vidx,vidy+2,                      (1-a-b)*(1-a-b));
-      update_if_present(vidx+1,vidy,                                  a*b);
-      update_if_present(vidx+1,vidy+1,                          (1-a-b)*b);
-      update_if_present(vidx,vidy+1,                            (1-a-b)*a);
+      update_if_present(vidr,vidc,                                    a*a);
+      update_if_present(vidr+2,vidc,                                  b*b);
+      update_if_present(vidr,vidc+2,                      (1-a-b)*(1-a-b));
+      update_if_present(vidr+1,vidc,                                  a*b);
+      update_if_present(vidr+1,vidc+1,                          (1-a-b)*b);
+      update_if_present(vidr,vidc+1,                            (1-a-b)*a);
     }else
     // ti % 2 == 1
     // Triangle is here (*):
@@ -215,18 +215,18 @@ public:
     // |‾‾|‾‾
     // ...
     {
-      const int vxidx = (ti % (2*(mesh_width - 1))) / 2 + 1;
-      const int vyidx =  ti / (2*(mesh_width - 1)) + 1;
+      const int vridx = (ti % (2*(mesh_width - 1))) / 2 + 1;
+      const int vcidx =  ti / (2*(mesh_width - 1)) + 1;
 
-      const int vidx = vxidx*2;
-      const int vidy = vyidx*2;
+      const int vidr = vridx*2;
+      const int vidc = vcidx*2;
       
-      update_if_present(vidx,vidy,                                   a*a);
-      update_if_present(vidx-2,vidy,                                 b*b);
-      update_if_present(vidx,vidy-2,                     (1-a-b)*(1-a-b));
-      update_if_present(vidx-1,vidy,                                 a*b);
-      update_if_present(vidx,vidy-1,                           (1-a-b)*a);
-      update_if_present(vidx-1,vidy-1,                         (1-a-b)*b); 
+      update_if_present(vidr,vidc,                                   a*a);
+      update_if_present(vidr-2,vidc,                                 b*b);
+      update_if_present(vidr,vidc-2,                     (1-a-b)*(1-a-b));
+      update_if_present(vidr-1,vidc,                                 a*b);
+      update_if_present(vidr,vidc-1,                           (1-a-b)*a);
+      update_if_present(vidr-1,vidc-1,                         (1-a-b)*b); 
     }
   }
   
