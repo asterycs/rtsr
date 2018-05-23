@@ -8,6 +8,14 @@
 
 #include "Util.hpp"
 
+#ifdef ENABLE_CUDA
+#define ALLOC_MAT(ptr,r,c,t) CUDA_CHECK(cudaMallocManaged((void**)&ptr,r*c*sizeof(t)))
+#define FREE_MAT(ptr) CUDA_CHECK(cudaFree(ptr))
+#else
+#define ALLOC_MAT(ptr,r,c,t) ptr = new t[r*c]
+#define FREE_MAT(ptr) delete[] ptr
+#endif
+
 template <typename T>
 class JtzVector
 {  
@@ -16,14 +24,14 @@ public:
   
   CUDA_HOST void resize(const int mesh_width)
   {
-    CUDA_CHECK(cudaFree(vec));
-    CUDA_CHECK(cudaMallocManaged((void**)&vec, mesh_width*mesh_width*sizeof(T)));
+    FREE_MAT(vec);
+    ALLOC_MAT(vec,mesh_width,mesh_width,T);
     this->mesh_width = mesh_width;
   }
 
   CUDA_HOST void clear()
   {
-    CUDA_CHECK(cudaFree(vec));
+    FREE_MAT(vec);
     this->mesh_width = 0;
   }
 
@@ -71,15 +79,15 @@ public:
 
   CUDA_HOST void resize(const int mesh_width)
   {     
-    CUDA_CHECK(cudaFree(mat));
-    CUDA_CHECK(cudaMallocManaged((void**)&mat, (2*mesh_width-1)*(2*mesh_width-1)*sizeof(T)));
+    FREE_MAT(mat);
+    ALLOC_MAT(mat,(2*mesh_width-1),(2*mesh_width-1),T);
     this->mesh_width = mesh_width;
     this->matrix_width = (2*mesh_width-1);
   }
 
   CUDA_HOST void clear()
   {
-    CUDA_CHECK(cudaFree(mat));
+    FREE_MAT(mat);
     this->mesh_width = 0;
     this->matrix_with = 0;
   }

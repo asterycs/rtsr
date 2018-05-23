@@ -9,7 +9,7 @@
 #include <cstdlib>
 
 #ifdef ENABLE_CUDA
-#include "CudaSolver.hpp"
+#include "Kernels.hpp"
 #endif
 
 template <typename T>
@@ -27,12 +27,14 @@ Mesh<T>::~Mesh()
 template <typename T>
 void Mesh<T>::cleanup()
 {
+#ifdef ENABLE_CUDA
     cudaDeviceSynchronize();
     for (auto& m : JtJ)
         JtJ.clear();
 
     for (auto& v : Jtz)
         v.clear();
+#endif
 }
 
 inline int subdivided_side_length(const int level, const int base_resolution)
