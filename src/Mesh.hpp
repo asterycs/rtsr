@@ -32,8 +32,8 @@ public:
   void get_mesh(const unsigned int level, Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& V_out, Eigen::MatrixXi& F_out) const;
   
 private:
-  std::vector<JtJMatrixGrid<T>, Eigen::aligned_allocator<JtJMatrixGrid<T>>> JtJ;
-  std::vector<JtzVector<T>, Eigen::aligned_allocator<JtzVector<T>>> Jtz;
+  std::vector<JtJMatrixGrid<T>> JtJ;
+  std::vector<JtzVector<T>> Jtz;
   Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> current_target_point_cloud;
   
   std::vector<Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>, Eigen::aligned_allocator<Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>>> V; // Vertices
@@ -42,7 +42,7 @@ private:
 
   void sor(const int iterations, const int level, Eigen::Ref<Eigen::Matrix<T, Eigen::Dynamic, 1>> h) const;
   void sor_parallel(const int iterations, const int level, Eigen::Ref<Eigen::Matrix<T, Eigen::Dynamic, 1>> h) const;
- void parallel_gpu_solve(const int iterations, const int level, Eigen::Ref<Eigen::Matrix<T, Eigen::Dynamic, 1>> h);
+  void parallel_gpu_solve(const int iterations, const int level, Eigen::Ref<Eigen::Matrix<T, Eigen::Dynamic, 1>> h);
   
   void project_points(const int level, Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& bc) const;
   void update_weights(const int level, const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& bc, const Eigen::Matrix<T, Eigen::Dynamic, 1>& z);

@@ -3,14 +3,12 @@
 #include "igl/barycentric_coordinates.h"
 #include "Util.hpp"
 
-#ifdef ENABLE_CUDA
-#include "CudaSolver.hpp"
-#endif
-
 #include <Eigen/QR>
 
 #include <iostream>
 #include <cstdlib>
+
+#include "CudaSolver.hpp"
 
 template <typename T>
 Mesh<T>::Mesh()
@@ -369,11 +367,11 @@ void Mesh<T>::solve(const int iterations)
   project_points(0, bc);
   update_weights(0, bc, current_target_point_cloud.col(1));
 
-#ifdef ENABLE_CUDA
+//#ifdef ENABLE_CUDA
   parallel_gpu_solve(iterations, 0, V[0].col(1));
-#else
-  sor_parallel(iterations, 0, V[0].col(1));
-#endif
+//#else
+//  sor_parallel(iterations, 0, V[0].col(1));
+//#endif
   
   for (int li = 1; li < MESH_LEVELS; ++li)
   {
@@ -403,11 +401,11 @@ void Mesh<T>::solve(const int iterations)
     
     update_weights(li, bc, point_with_residual_height.col(1));
 
-#ifdef ENABLE_CUDA
+//#ifdef ENABLE_CUDA
       parallel_gpu_solve(iterations, li, V[li].col(1));
-#else
-      sor_parallel(iterations, li, V[li].col(1));
-#endif
+//#else
+//      sor_parallel(iterations, li, V[li].col(1));
+//#endif
   }
 }
 
@@ -424,13 +422,13 @@ void Mesh<T>::sor(const int iterations, const int level, Eigen::Ref<Eigen::Matri
 }
 
 template <typename T>
-inline void sor_inner(const int vi, const JtJMatrixGrid<T>& JtJ, const Eigen::Matrix<T, Eigen::Dynamic, 1>& Jtz_vec, Eigen::Ref<Eigen::Matrix<T, Eigen::Dynamic, 1>> h)
+inline void sor_inner(const int vi, const JtJMatrixGrid<T>& JtJ, const JtzVector<T>& Jtz_vec, Eigen::Ref<Eigen::Matrix<T, Eigen::Dynamic, 1>> h)
 {
-  T xn = Jtz_vec(vi);
+  T xn = Jtz_vec.get(vi);
   T acc = 0;
 
-  std::array<T, 6> vals;
-  std::array<int, 6> ids;
+  T vals[6];
+  int ids[6];
 
   T a;
   JtJ.get_matrix_values_for_vertex(vi, vals, ids, a);
@@ -447,7 +445,7 @@ inline void sor_inner(const int vi, const JtJMatrixGrid<T>& JtJ, const Eigen::Ma
 template <typename T>
 void Mesh<T>::sor_parallel(const int iterations, const int level, Eigen::Ref<Eigen::Matrix<T, Eigen::Dynamic, 1>> h) const
 {
-  const auto& Jtz_vec = Jtz[level].get_vec();
+  const auto& Jtz_vec = Jtz[level];
   const auto& Jtj_mat = JtJ[level];
   const int resolution = subdivided_side_length(level, MESH_RESOLUTION);
     
@@ -485,4 +483,37 @@ void Mesh<T>::sor_parallel(const int iterations, const int level, Eigen::Ref<Eig
         sor_inner(vi, Jtj_mat, Jtz_vec, h);
       }
   }
+}
+
+template <typename T>
+void Mesh<T>::parallel_gpu_solve(const int, const int, Eigen::Ref<Eigen::Matrix<T, Eigen::Dynamic, 1>>) {
+
+    assert(false && "GPU wolver works only with float meshes");
+}
+
+template <> // Works only for float meshes
+void Mesh<float>::parallel_gpu_solve(const int iterations, const int level, Eigen::Ref<Eigen::Matrix<float, Eigen::Dynamic, 1>> h) {
+    const JtJMatrixGrid<float> JtJ_mat = JtJ[level];
+    const JtzVector<float> Jtz_vec = Jtz[level];
+    const int mesh_width = JtJ[level].get_mesh_width();
+    const int mesh_width_squared = mesh_width*mesh_width;
+    const int mat_width = JtJ[level].get_matrix_width();
+
+    float *devH;
+    CUDA_CHECK(cudaMalloc(&devH, h.rows() * sizeof(float)));
+    CUDA_CHECK(cudaMemcpy(devH, h.data(), h.rows() * sizeof(float), cudaMemcpyHostToDevice));
+
+    for (int it = 0; it < iterations; it++) {
+	    solve_kernel<<<mesh_width_squared, 1>>>(0, 0, mesh_width, Jtz_vec, JtJ_mat, devH);
+	    cudaDeviceSynchronize();
+	    solve_kernel<<<mesh_width_squared, 1>>>(1, 0, mesh_width, Jtz_vec, JtJ_mat, devH);
+	    cudaDeviceSynchronize();
+	    solve_kernel<<<mesh_width_squared, 1>>>(0, 1, mesh_width, Jtz_vec, JtJ_mat, devH);
+	    cudaDeviceSynchronize();
+	    solve_kernel<<<mesh_width_squared, 1>>>(1, 1, mesh_width, Jtz_vec, JtJ_mat, devH);
+	    cudaDeviceSynchronize();
+    }
+
+    CUDA_CHECK(cudaMemcpy(h.data(), devH, h.rows() * sizeof(float), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaFree(devH));
 }
