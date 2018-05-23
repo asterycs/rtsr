@@ -125,7 +125,7 @@ bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int
 {
   if (key == '1')
   {
-    mesh.solve(10);
+    mesh.solve(20);
     Eigen::MatrixXf vertices;
     Eigen::MatrixXi faces;
     mesh.get_mesh(viewer_mesh_level, vertices, faces);
@@ -161,7 +161,7 @@ bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int
         break;
         
       mesh.set_target_point_cloud(current_target);
-      mesh.solve(10);
+      mesh.solve(20);
     }
     reload_viewer_data(viewer, current_target, C, viewer_mesh_level);
     

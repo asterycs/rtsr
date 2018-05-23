@@ -9,11 +9,11 @@
 #include "EqHelpers.hpp"
 
 // Number of vertices along one dimension
-#define MESH_RESOLUTION 2
+#define MESH_RESOLUTION 5
 // Scale factor. 1 makes the mesh the same size as the bounding box of the
 // point cloud given to align_to_point_cloud
-#define MESH_SCALING_FACTOR 1.5
-#define MESH_LEVELS 7
+#define MESH_SCALING_FACTOR 2.0
+#define MESH_LEVELS 6
 
 template <typename T>
 class Mesh

@@ -2,15 +2,14 @@
 file(GLOB CXX_SRC *.cpp)
 
 if (ENABLE_CUDA)
-    file(GLOB CU_SRC *.cu)
     set_source_files_properties(main.cpp Util.cpp PROPERTIES LANGUAGE CUDA)
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -G --Werror cross-execution-space-call -Xptxas -dlcm=ca --ptxas-options=-v --compiler-options=\"${CXX_FLAGS}\"")
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -lineinfo --Werror cross-execution-space-call -Xptxas -dlcm=ca --ptxas-options=-v --compiler-options=\"${CXX_FLAGS}\"")
 endif(ENABLE_CUDA)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror -Wno-error=unused-parameter -Wconversion -Wno-error=conversion -Wno-error=implicit-fallthrough")
 
 
-add_executable(${PROJECT_NAME} ${CXX_SRC} ${CU_SRC})
+add_executable(${PROJECT_NAME} ${CXX_SRC})
 target_link_libraries(${PROJECT_NAME} ${Boost_LIBRARIES} igl::core igl::opengl_glfw igl::opengl igl::opengl_glfw_imgui)
 
 if (CMAKE_BUILD_TYPE EQUAL "RELEASE")

@@ -504,7 +504,7 @@ void Mesh<T>::sor_parallel(const int iterations, const int level, Eigen::Ref<Eig
 template <typename T>
 void Mesh<T>::parallel_gpu_solve(const int, const int, Eigen::Ref<Eigen::Matrix<T, Eigen::Dynamic, 1>>) {
 
-    assert(false && "GPU wolver works only with float meshes");
+    assert(false && "GPU solver works only with float meshes");
 }
 
 template <> // Works only for float meshes
@@ -523,13 +523,13 @@ void Mesh<float>::parallel_gpu_solve(const int iterations, const int level, Eige
     dim3 grid((mesh_width_squared + block.x - 1) / block.x);
 
     for (int it = 0; it < iterations; it++) {
-	    solve_kernel<<<grid, grid>>>(0, 0, mesh_width, Jtz_vec, JtJ_mat, devH);
+	    solve_kernel<<<grid, block>>>(0, 0, mesh_width, Jtz_vec, JtJ_mat, devH);
 	    cudaDeviceSynchronize();
-	    solve_kernel<<<grid, grid>>>(1, 0, mesh_width, Jtz_vec, JtJ_mat, devH);
+	    solve_kernel<<<grid, block>>>(1, 0, mesh_width, Jtz_vec, JtJ_mat, devH);
 	    cudaDeviceSynchronize();
-	    solve_kernel<<<grid, grid>>>(0, 1, mesh_width, Jtz_vec, JtJ_mat, devH);
+	    solve_kernel<<<grid, block>>>(0, 1, mesh_width, Jtz_vec, JtJ_mat, devH);
 	    cudaDeviceSynchronize();
-	    solve_kernel<<<grid, grid>>>(1, 1, mesh_width, Jtz_vec, JtJ_mat, devH);
+	    solve_kernel<<<grid, block>>>(1, 1, mesh_width, Jtz_vec, JtJ_mat, devH);
 	    cudaDeviceSynchronize();
     }
 

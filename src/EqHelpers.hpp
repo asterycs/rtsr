@@ -9,10 +9,10 @@
 #include "Util.hpp"
 
 #ifdef ENABLE_CUDA
-#define ALLOC_MAT(ptr,r,c,t) CUDA_CHECK(cudaMallocManaged((void**)&ptr,r*c*sizeof(t)))
+#define ALLOC_MAT(ptr,r,c,t) CUDA_CHECK(cudaMallocManaged((void**)&ptr,(r)*(c)*sizeof(t)))
 #define FREE_MAT(ptr) CUDA_CHECK(cudaFree(ptr))
 #else
-#define ALLOC_MAT(ptr,r,c,t) ptr = new t[r*c]
+#define ALLOC_MAT(ptr,r,c,t) ptr = new t[(r)*(c)]
 #define FREE_MAT(ptr) delete[] ptr
 #endif
 
@@ -201,12 +201,12 @@ public:
       const int vidx = vxidx*2; // Index in the grid matrix, Figure 5(c) in the paper
       const int vidy = vyidx*2;
       
-      update_if_present(vidx,vidy,                                                                     a*a);
-      update_if_present(vidx+2,vidy,                                                                b*b);
-      update_if_present(vidx,vidy+2,                                               (1-a-b)*(1-a-b));
-      update_if_present(vidx+1,vidy,                                                                 a*b);
-      update_if_present(vidx+1,vidy+1,                                                   (1-a-b)*b);
-      update_if_present(vidx,vidy+1,                                                        (1-a-b)*a);
+      update_if_present(vidx,vidy,                                    a*a);
+      update_if_present(vidx+2,vidy,                                  b*b);
+      update_if_present(vidx,vidy+2,                      (1-a-b)*(1-a-b));
+      update_if_present(vidx+1,vidy,                                  a*b);
+      update_if_present(vidx+1,vidy+1,                          (1-a-b)*b);
+      update_if_present(vidx,vidy+1,                            (1-a-b)*a);
     }else
     // ti % 2 == 1
     // Triangle is here (*):
@@ -222,11 +222,11 @@ public:
       const int vidy = vyidx*2;
       
       update_if_present(vidx,vidy,                                   a*a);
-      update_if_present(vidx-2,vidy,                               b*b);
-      update_if_present(vidx,vidy-2,              (1-a-b)*(1-a-b));
-      update_if_present(vidx-1,vidy,                                a*b);
-      update_if_present(vidx,vidy-1,                       (1-a-b)*a);
-      update_if_present(vidx-1,vidy-1,                   (1-a-b)*b); 
+      update_if_present(vidx-2,vidy,                                 b*b);
+      update_if_present(vidx,vidy-2,                     (1-a-b)*(1-a-b));
+      update_if_present(vidx-1,vidy,                                 a*b);
+      update_if_present(vidx,vidy-1,                           (1-a-b)*a);
+      update_if_present(vidx-1,vidy-1,                         (1-a-b)*b); 
     }
   }
   
