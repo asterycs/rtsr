@@ -48,8 +48,10 @@ set(Boost_USE_STATIC_LIBS OFF)
 set(Boost_USE_MULTITHREADED ON)
 set(Boost_USE_STATIC_RUNTIME OFF)
 find_package(Boost REQUIRED COMPONENTS filesystem)
+find_package(PCL REQUIRED)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/ext/glm)
 include_directories(${Boost_INCLUDE_DIRS})
+include_directories(${PCL_INCLUDE_DIRS})
 
 add_subdirectory("src/")

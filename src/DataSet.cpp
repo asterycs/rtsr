@@ -8,6 +8,14 @@
 #include <iomanip>
 #include <Eigen/Dense>
 
+#include <pcl/ModelCoefficients.h>
+#include <pcl/io/pcd_io.h>
+#include <pcl/point_types.h>
+#include <pcl/sample_consensus/method_types.h>
+#include <pcl/sample_consensus/model_types.h>
+#include <pcl/segmentation/sac_segmentation.h>
+#include <pcl/filters/extract_indices.h>
+
 std::string strip_file_suffix(const std::string& s)
 {
   std::string::size_type idx = s.rfind('.');
@@ -61,16 +69,38 @@ std::string trim_left(const std::string& str, const char* t = " \t\n\r\f\v")
   return res;
 }
 
-DataSet::DataSet(const std::string& folder) : next_file_idx(0), folder_path(folder), camera_ref_file_name(folder+"groundtruth.txt"), rgb_ref_file_name(folder+"rgb.txt")
+DataSet::DataSet(const std::string& folder) : next_file_idx(0), folder_path(folder), rgb_ref_file_name(folder+"rgb.txt")
 {
   boost::filesystem::directory_iterator depth_it(folder + "depth/");
   
+  const std::string groundtruth_ref_file_name(folder+"groundtruth.txt");
+  const std::string camera_ref_file_name(folder+"CameraTrajectory.txt");
+  
+  camera_ref_file.open(groundtruth_ref_file_name.c_str());
+  if (!camera_ref_file.is_open()) {
+    std::cout << "Couldn't open groundtruth.txt - trying CameraTrajectory.txt" << std::endl;
+    std::cout << camera_ref_file_name << std::endl;
+    camera_ref_file.open(camera_ref_file_name.c_str());
+  }
+  if (!camera_ref_file.is_open()) {
+    std::cerr << "Couldn't open groundtruth.txt" << std::endl;
+    return;
+  }
+
   for (auto& it : depth_it)
     depth_files.push_back(it.path().string());
     
   std::sort(depth_files.begin(), depth_files.end());
-      
+
+  rOffset = Eigen::Matrix4d::Identity();
+  clip = false;
   operational = true;
+
+  Eigen::MatrixXd P, C;
+  Eigen::Matrix4d t_camera;
+  get_next_point_cloud(P, C, t_camera);
+  Eigen::Affine3f r = findPlaneRotation(P);
+  rOffset = r.matrix().cast<double>();
 }
 
 DataSet::~DataSet()
@@ -89,6 +119,7 @@ bool DataSet::get_next_point_cloud(Eigen::MatrixXd& points, Eigen::MatrixXd &col
  
   if (!get_next_camera(t_camera, time_stamp_d))
     return false;
+  t_camera = rOffset * t_camera;
     
   std::string rgb_filename = get_next_rgb(time_stamp_d);
   if (rgb_filename == "")
@@ -126,9 +157,11 @@ bool DataSet::get_next_point_cloud(Eigen::MatrixXd& points, Eigen::MatrixXd &col
         Eigen::RowVector4d world_point = camera_point.transpose();
         unsigned char* color = rgb + (x+y*rgb_width)*rgb_bpp;
         
+        if (clip && world_point[2] > 0) continue; // so not the shadowy side?
+
 #pragma omp critical
         {
-          points.row(rowcntr) << world_point[0], world_point[2], world_point[1];
+          points.row(rowcntr) << world_point[0], world_point[1], world_point[2];
           colors.row(rowcntr) << (float)color[0]/255, (float)color[1]/255, (float)color[2]/255;
           ++rowcntr;
         }
@@ -144,6 +177,10 @@ bool DataSet::get_next_point_cloud(Eigen::MatrixXd& points, Eigen::MatrixXd &col
   return true;
 }
 
+void DataSet::clip_point_clouds() {
+  clip = !clip;
+}
+
 struct CameraEntry
 {
   double time, tx, ty, tz, qi, qj, qk, ql;
@@ -156,20 +193,14 @@ bool DataSet::get_next_camera(Eigen::Matrix4d& cam, const double timestamp)
   if (!operational)
     return false;
     
-  std::fstream camera_ref_file(camera_ref_file_name);
-  
-  if (!camera_ref_file.is_open())
-  {
-    std::cerr << "Couldn't open groundtruth.txt" << std::endl;
-    operational = false;
-  }
-    
   std::string line;
   bool abort = false;
   
   struct CameraEntry previous;
-  double previousDT = std::numeric_limits<double>::max();
+  previous.time = 0;
   
+  camera_ref_file.seekg(0, std::ios::beg);
+
   while (!abort)
   {
     while (std::getline(camera_ref_file, line) && trim_left(line)[0] == '#');
@@ -182,13 +213,15 @@ bool DataSet::get_next_camera(Eigen::Matrix4d& cam, const double timestamp)
     struct CameraEntry current;
     
     line_stream >> current.time >> current.tx >> current.ty >> current.tz >> current.qi >> current.qj >> current.qk >> current.ql;
-    double currentDT = std::abs(current.time - timestamp);
-    if (currentDT > previousDT) // Previous was closer
+    if (current.time > timestamp && previous.time > 0) // Previous was closer
     {
+      // std::cout << (previous.time - 1527117859) << " " << (timestamp - 1527117859) << " " << (current.time - 1527117859) << std::endl;
       const double ti = (timestamp - previous.time) / (current.time - previous.time);
       const Eigen::Quaterniond qa(previous.ql,previous.qi,previous.qj,previous.qk),
                                qb(current.ql,current.qi,current.qj,current.qk);
       const Eigen::Quaterniond q_interp = qa.slerp(ti, qb);
+
+      // std::cout << (timestamp-1527117859) << " " << ti << " " << q_interp.x() << " " << q_interp.y() << " " << q_interp.z() << " " << q_interp.w() << std::endl;
       
       const Eigen::Vector3d ta(previous.tx, previous.ty, previous.tz),
                             tb(current.tx, current.ty, current.tz);
@@ -200,7 +233,6 @@ bool DataSet::get_next_camera(Eigen::Matrix4d& cam, const double timestamp)
       cam << t.matrix() * r.matrix();
       abort = true;
     }else{
-      previousDT = currentDT;
       previous = current;
     }
   }
@@ -210,12 +242,12 @@ bool DataSet::get_next_camera(Eigen::Matrix4d& cam, const double timestamp)
 
 std::string DataSet::get_next_rgb(const double timestamp)
 {
-  std::fstream camera_ref_file(rgb_ref_file_name);
+  std::fstream rgb_ref_file(rgb_ref_file_name);
   double previousDT = std::numeric_limits<double>::max();
   std::string previous_filename;
   
   std::string line;
-  while (std::getline(camera_ref_file >> std::ws, line) && !line.empty())
+  while (std::getline(rgb_ref_file >> std::ws, line) && !line.empty())
   {
     if (trim_left(line)[0] == '#')
       continue;
@@ -242,4 +274,83 @@ std::string DataSet::get_next_rgb(const double timestamp)
   }
   
   return "";
+}
+
+
+
+Eigen::Affine3f DataSet::findPlaneRotation(Eigen::MatrixXd& points) {
+  // Use Ransac
+
+  long int size = points.rows();
+
+  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
+  cloud->width = size;
+  cloud->height = 1;
+  cloud->points.resize (cloud->width * cloud->height);
+
+#pragma omp parallel for
+  for (int i = 0; i < size; ++i)
+  {
+    cloud->points[i].x = (float)points(i,0);
+    cloud->points[i].y = (float)points(i,1);
+    cloud->points[i].z = (float)points(i,2);
+  }
+
+  pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
+  pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
+  pcl::SACSegmentation<pcl::PointXYZ> seg;
+  pcl::ExtractIndices<pcl::PointXYZ> extract;
+  seg.setOptimizeCoefficients (true);
+  seg.setModelType (pcl::SACMODEL_PLANE);
+  seg.setMethodType (pcl::SAC_RANSAC);
+  seg.setDistanceThreshold(0.01);
+
+  seg.setInputCloud (cloud);
+  seg.segment (*inliers, *coefficients);
+
+  if (inliers->indices.size () == 0)
+  {
+    PCL_ERROR ("Could not estimate a planar model for the given dataset.");
+    return Eigen::Affine3f::Identity();
+  }
+
+  // std::cout << "Model coefficients: " << coefficients->values[0] << " " 
+  //                                     << coefficients->values[1] << " "
+  //                                     << coefficients->values[2] << " " 
+  //                                     << coefficients->values[3] << std::endl;
+
+  Eigen::Matrix<float, 1, 3> floor_plane_normal_vector, xy_plane_normal_vector;
+
+  floor_plane_normal_vector[0] = coefficients->values[0];
+  floor_plane_normal_vector[1] = coefficients->values[1];
+  floor_plane_normal_vector[2] = coefficients->values[2];
+
+  xy_plane_normal_vector[0] = 0.0;
+  xy_plane_normal_vector[1] = 1.0;
+  xy_plane_normal_vector[2] = 0.0;
+
+  Eigen::Vector3f mu (0.0, 0.0, 0.0);
+
+  for (uint i=0;i < inliers->indices.size();i++){
+
+    // Get Point
+    pcl::PointXYZ pt = cloud->points[inliers->indices[i]];
+
+    mu[0] += pt.x;
+    mu[1] += pt.y;
+    mu[2] += pt.z;
+  }
+
+  mu /= (float)inliers->indices.size ();
+
+  Eigen::Vector3f rotation_vector = xy_plane_normal_vector.cross(floor_plane_normal_vector);
+  rotation_vector.normalize();
+  float theta = -atan2f(rotation_vector.norm(), xy_plane_normal_vector.dot(floor_plane_normal_vector));
+
+  Eigen::Affine3f transform_1(Eigen::Translation3f(-mu));
+
+  Eigen::Affine3f transform_2 = Eigen::Affine3f::Identity();
+  transform_2.rotate(Eigen::AngleAxisf (theta, rotation_vector));
+
+  return transform_2 * transform_1;
 }
