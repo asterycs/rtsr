@@ -49,9 +49,13 @@ set(Boost_USE_MULTITHREADED ON)
 set(Boost_USE_STATIC_RUNTIME OFF)
 find_package(Boost REQUIRED COMPONENTS filesystem)
 find_package(PCL REQUIRED)
+find_package(catkin REQUIRED COMPONENTS roscpp sensor_msgs message_filters rostime)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/ext/glm)
 include_directories(${Boost_INCLUDE_DIRS})
 include_directories(${PCL_INCLUDE_DIRS})
+include_directories(${catkin_INCLUDE_DIRS})
+
+catkin_package()
 
 add_subdirectory("src/")

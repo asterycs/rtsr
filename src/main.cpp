@@ -3,6 +3,7 @@
 #include "igl/fit_plane.h"
 #include "igl/mat_min.h"
 #include "DataSet.hpp"
+#include "DataROS.hpp"
 #include "Mesh.hpp"
 #include <Eigen/Geometry>
 
@@ -17,8 +18,10 @@
 
 int viewer_mesh_level = 0;
 Mesh<float> mesh;
+igl::opengl::glfw::Viewer viewer;
 Eigen::MatrixXd P, P2, current_target, C;
 DataSet *ds;
+DataROS *dr;
 
 template <typename T>
 void split_point_cloud(const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& P, Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& P1, Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& P2, const Eigen::Matrix<int, Eigen::Dynamic, 1>& id1, Eigen::Matrix<int, Eigen::Dynamic, 1>& id2)
@@ -178,22 +181,46 @@ bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int
     viewer_mesh_level = viewer_mesh_level < 1 ? viewer_mesh_level : viewer_mesh_level - 1;
     reload_viewer_data(viewer, current_target, viewer_mesh_level); 
   }
+
+  if (key == '4')
+  {
+    ds->clip_point_clouds();
+  }
   
   
   return true;
+}
+
+void receive_viewer_data(const Eigen::MatrixXd points, const Eigen::MatrixXd colors) {
+    P = points;
+    C = colors;
 }
 
 int main(int argc, char* argv[]) {
     // Read points and normals
     // igl::readOFF(argv[1],P,F,N);
     
+    std::thread t1;
+
     C.resize(1,3);
     C << 0.f,0.7f,0.7f;
-        
+
+    
     if (argc > 2)
     {
       std::cout << "Usage: $0" << std::endl;
       return EXIT_SUCCESS;
+    } else if (argc > 1 && std::string(argv[1]) == "live") {
+      dr = new DataROS(argc, argv);
+      t1 = std::thread([] { dr->subscribe(&receive_viewer_data); });
+
+      viewer.callback_pre_draw = [&](igl::opengl::glfw::Viewer & v)->bool
+      {
+        v.data().clear();
+        v.data().point_size=5;
+        v.data().add_points(P, C);
+        return false;
+      };
     } else if (argc > 1) {
       std::string folder(argv[1]);
       ds = new DataSet(folder);
@@ -206,14 +233,7 @@ int main(int argc, char* argv[]) {
       split_point_cloud(P, current_target, P2, id1, id2);
     }
 
-    mesh.align_to_point_cloud(P.cast<float>().eval());
-    mesh.set_target_point_cloud(current_target.cast<float>().eval());
-    
-    igl::opengl::glfw::Viewer viewer;    
     viewer.callback_key_down = callback_key_down;
-    
-    reload_viewer_data(viewer, current_target, C, viewer_mesh_level);
-    viewer.core.align_camera_center(current_target);
     
     igl::opengl::glfw::imgui::ImGuiMenu menu;
     viewer.plugins.push_back(&menu);
@@ -225,8 +245,24 @@ int main(int argc, char* argv[]) {
       ImGui::Text("Current mesh level: %d", viewer_mesh_level);
     };
     
+    // Set Viewer to tight draw loop
+    viewer.core.is_animating = true;
+
+    if (current_target.rows() > 0) {
+      mesh.align_to_point_cloud(P.cast<float>().eval());
+      mesh.set_target_point_cloud(current_target.cast<float>().eval());
+      reload_viewer_data(viewer, current_target, C, viewer_mesh_level);
+      viewer.core.align_camera_center(current_target);
+    }
+
     viewer.launch();
 
     // cleanup
     mesh.cleanup();
+
+    if (argc > 1 && std::string(argv[1]) == "live") {
+      t1.join();
+    }
+
+    return 0;
 }

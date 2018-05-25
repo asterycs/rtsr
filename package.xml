@@ -1,0 +1,17 @@
+<package format="2">
+  <name>rtsr</name>
+  <version>1.0.0</version>
+  <description>
+  This package provides rtsr capability.
+  </description>
+  <maintainer email="ivana@osrf.org">Ivana Bildbotz</maintainer>
+  <license>BSD</license>
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>libpcl-all-dev</build_depend>
+  <depend>libpcl-all</depend>
+  <depend>roscpp</depend>
+  <depend>pcl_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>rostime</depend>
+  <depend>message_filters</depend>
+</package>
