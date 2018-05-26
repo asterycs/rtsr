@@ -19,7 +19,7 @@ public:
   void clip_point_clouds();
 private:
   bool get_next_camera(Eigen::Matrix4d& cam, const double timestamp);
-  const char* get_next_rgb(const double timestamp);
+  std::string get_next_rgb(const double timestamp);
 
   bool operational;
   bool clip;

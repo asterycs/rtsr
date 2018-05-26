@@ -16,7 +16,7 @@
 #include <sstream>
 
 Mesh<double> mesh;
-Eigen::MatrixXd P, P1, P2;
+Eigen::MatrixXd P, P1, P2, C;
 DataSet *ds;
 
 template <typename T>
@@ -115,7 +115,7 @@ bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int
   if (key == '2')
   {
     
-    Eigen::MatrixXd C(1, 3);
+    C.resize(1, 3);
     C << 0.f,0.7f,0.7f;
     
     if (ds) {
@@ -138,7 +138,7 @@ int main(int argc, char* argv[]) {
     // Read points and normals
     // igl::readOFF(argv[1],P,F,N);
     
-    Eigen::MatrixXd C(1, 3);
+    C.resize(1,3);
     C << 0.f,0.7f,0.7f;
     
     if (argc > 2)

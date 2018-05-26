@@ -121,12 +121,13 @@ bool DataSet::get_next_point_cloud(Eigen::MatrixXd& points, Eigen::MatrixXd &col
     return false;
   t_camera = rOffset * t_camera;
     
-  const char *rgb_filename = get_next_rgb(time_stamp_d);
-  if (!rgb_filename)
+  std::string rgb_filename = get_next_rgb(time_stamp_d);
+  if (rgb_filename == "")
     return false;
   
-  int rgb_width, rgb_height, rgb_bpp;  
-  unsigned char* rgb = stbi_load((folder_path + rgb_filename).c_str(), &rgb_width, &rgb_height, &rgb_bpp, 3);
+  int rgb_width, rgb_height, rgb_bpp;
+  std::string rgb_path = folder_path + rgb_filename;
+  unsigned char* rgb = stbi_load(rgb_path.c_str(), &rgb_width, &rgb_height, &rgb_bpp, 3);
   
   if (static_cast<unsigned int>(next_file_idx) < depth_files.size())
   {    
@@ -239,7 +240,7 @@ bool DataSet::get_next_camera(Eigen::Matrix4d& cam, const double timestamp)
   return true;
 }
 
-const char* DataSet::get_next_rgb(const double timestamp)
+std::string DataSet::get_next_rgb(const double timestamp)
 {
   std::fstream rgb_ref_file(rgb_ref_file_name);
   double previousDT = std::numeric_limits<double>::max();
@@ -266,13 +267,13 @@ const char* DataSet::get_next_rgb(const double timestamp)
     double currentDT = std::abs(t - timestamp);
     if (currentDT > previousDT) // Previous was closer
     {
-      return previous_filename.c_str();
+      return previous_filename;
     }
     previous_filename = filename;
     previousDT = currentDT;
   }
   
-  return nullptr;
+  return "";
 }
 
 
