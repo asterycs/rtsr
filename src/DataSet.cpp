@@ -101,6 +101,7 @@ DataSet::DataSet(const std::string& folder) : next_file_idx(0), folder_path(fold
   get_next_point_cloud(P, C, t_camera);
   Eigen::Affine3f r = findPlaneRotation(P);
   rOffset = r.matrix().cast<double>();
+  clip = true;
 }
 
 DataSet::~DataSet()
@@ -157,7 +158,7 @@ bool DataSet::get_next_point_cloud(Eigen::MatrixXd& points, Eigen::MatrixXd &col
         Eigen::RowVector4d world_point = camera_point.transpose();
         unsigned char* color = rgb + (x+y*rgb_width)*rgb_bpp;
         
-        if (clip && world_point[2] > 0) continue; // so not the shadowy side?
+        if (clip && world_point[1] < 0.05) continue; // so not the shadowy side?
 
 #pragma omp critical
         {
@@ -276,6 +277,13 @@ std::string DataSet::get_next_rgb(const double timestamp)
   return "";
 }
 
+void DataROS::subscribe(void (*getData)(const Eigen::MatrixXd points, const Eigen::MatrixXd colors)) {  
+  subscriber = getData;
+
+  if (subscriber != NULL && rowcntr > 0) {
+    subscriber(points, colors);
+  }
+}
 
 
 Eigen::Affine3f DataSet::findPlaneRotation(Eigen::MatrixXd& points) {
@@ -324,6 +332,8 @@ Eigen::Affine3f DataSet::findPlaneRotation(Eigen::MatrixXd& points) {
   floor_plane_normal_vector[0] = coefficients->values[0];
   floor_plane_normal_vector[1] = coefficients->values[1];
   floor_plane_normal_vector[2] = coefficients->values[2];
+
+  if (floor_plane_normal_vector[1] > 0) floor_plane_normal_vector = -floor_plane_normal_vector;
 
   xy_plane_normal_vector[0] = 0.0;
   xy_plane_normal_vector[1] = 1.0;

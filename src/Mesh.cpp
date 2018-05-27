@@ -39,7 +39,7 @@ void Mesh<T>::align_to_point_cloud(const Eigen::Matrix<T, Rows, Cols>& P)
   
   // P_centr: mean of the point cloud
   TvecR3 P_centr = bb_min + 0.5*(bb_max - bb_min);
-  P_centr(1) = pc_mean(1); // Move to mean height w/r to pc instead of bb.
+  P_centr(1) = 0; // Move to mean height w/r to pc instead of bb.
   
   const Eigen::Transform<T, 3, Eigen::Affine> t(Eigen::Translation<T, 3>(P_centr.transpose()));
   
@@ -75,7 +75,7 @@ void Mesh<T>::align_to_point_cloud(const Eigen::Matrix<T, Rows, Cols>& P)
     JtJ.update_triangle(i, 0.34f, 0.33f);
 
   for (int i = 0; i < (MESH_RESOLUTION-1)*(MESH_RESOLUTION-1)*2; ++i)
-    Jtz.update_triangle(i, 0.34f, 0.33f, pc_mean(1));
+    Jtz.update_triangle(i, 0.34f, 0.33f, 0);
 }
 
 template <typename T>
