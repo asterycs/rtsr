@@ -34,59 +34,22 @@ void split_point_cloud(const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& P
 }
 
 template <typename T>
-void generate_example_point_cloud1(Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& P)
-{
-  const int size = 120;
-  P.resize(size*size,3);
-  
-  for (int x = 0; x < size; ++x)
-  {
-    for (int y = 0; y < size; ++y)
-    {
-      Eigen::Matrix<T, 1, 3> row(T(x), 4., T(y));
-      P.row(x + y*size) = row;
-    }
-  }
-  
-  const int b = 3;
-  const int s = 5;
-  const int step = size / (b+1);
-  int cntr = 0;
-
-  for (int bx = step; bx < size; bx += step)
-  {
-    for (int by = step; by < size; by += step)
-    {
-      for (int x = bx-s; x < bx+s; ++x)
-      {
-        for (int y = by-s; y < by+s; ++y)
-        {
-          Eigen::Matrix<T, 1, 3> row(T(x), cntr * 1., T(y));
-          P.row(x + y*size) = row;
-        }
-      }
-      
-      ++cntr;
-    }
-  }
-}
-
-template <typename T>
 void generate_example_point_cloud2(Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& P, Eigen::Matrix<int, Eigen::Dynamic, 1>& id1, Eigen::Matrix<int, Eigen::Dynamic, 1>& id2)
 {
   const int size = 120;
   P.resize(size*size,3);
-  id1.resize(size*size / 2);
-  id2.resize(size*size / 2);
+  id1.resize(size*int(size * 0.55));
+  id2.resize(size*int(size * 0.55));
   
   int cntr1 = 0, cntr2 = 0;
   for (int x = 0; x < size; ++x)
   {
+    const int multipl = x / 30 + 1;
     for (int y = 0; y < size; ++y)
     {
       T height;
       
-      if (y / (size / 5) % 2 == 0)
+      if (int(y / (size / (5*multipl))) % 2 == 0)
         height = 15;
       else
         height = 0;
@@ -94,10 +57,20 @@ void generate_example_point_cloud2(Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynam
       Eigen::Matrix<T, 1, 3> row(T(x), height, T(y));
       P.row(x + y*size) = row;
       
-      if (x < size / 2)
+      if (x > size * 0.45 && x < size * 0.55)
+      {
         id1(cntr1++) = x + y*size;
-      else
         id2(cntr2++) = x + y*size;
+      }
+      else if (x < size * 0.45)
+      {
+        id1(cntr1++) = x + y*size;
+      }
+      else
+      {
+        id2(cntr2++) = x + y*size;
+      }
+        
     }
   }
   
