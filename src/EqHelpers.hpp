@@ -9,10 +9,12 @@
 #include "Util.hpp"
 
 #ifdef ENABLE_CUDA
-#define ALLOC_MAT(ptr,r,c,t) CUDA_CHECK(cudaMallocManaged((void**)&ptr,(r)*(c)*sizeof(t)))
+#define ALLOC_MAT(ptr,r,c,t) CUDA_CHECK(cudaMallocManaged((void**)&(ptr),(r)*(c)*sizeof(t)))
+#define SET_ZERO(ptr,r,c,t) CUDA_CHECK(cudaMemset((ptr),0,(r)*(c)*sizeof(T)));
 #define FREE_MAT(ptr) CUDA_CHECK(cudaFree(ptr))
 #else
 #define ALLOC_MAT(ptr,r,c,t) ptr = new t[(r)*(c)]
+#define SET_ZERO(ptr,r,c,t) std::memset((ptr),0,(r)*(c)*sizeof(T));
 #define FREE_MAT(ptr) delete[] ptr
 #endif
 
@@ -26,6 +28,7 @@ public:
   {
     FREE_MAT(vec);
     ALLOC_MAT(vec,mesh_width,mesh_width,T);
+    SET_ZERO(vec,mesh_width,mesh_width,T);
     this->mesh_width = mesh_width;
   }
 
@@ -81,6 +84,7 @@ public:
   {     
     FREE_MAT(mat);
     ALLOC_MAT(mat,(2*mesh_width-1),(2*mesh_width-1),T);
+    SET_ZERO(mat,(2*mesh_width-1),(2*mesh_width-1),T);
     this->mesh_width = mesh_width;
     this->matrix_width = (2*mesh_width-1);
   }
@@ -89,7 +93,7 @@ public:
   {
     FREE_MAT(mat);
     this->mesh_width = 0;
-    this->matrix_with = 0;
+    this->matrix_width = 0;
   }
   
  CUDA_HOST_DEVICE unsigned int get_mesh_width() const
