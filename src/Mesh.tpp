@@ -348,7 +348,6 @@ void Mesh<T>::project_points(const int level, Eigen::Matrix<T, Eigen::Dynamic, E
     
     bc.row(pi) << T(f_idx), u, v;
   }
-  
 }
 
 template <typename T>
@@ -428,12 +427,13 @@ void Mesh<T>::solve(const int iterations)
 template <typename T>
 void Mesh<T>::sor(const int iterations, const int level, Eigen::Ref<Eigen::Matrix<T, Eigen::Dynamic, 1>> h) const
 {
-  const auto& Jtz_vec = Jtz[level].get_vec();
+  const auto& Jtz_vec = Jtz[level];
+  const auto& Jtj_mat = JtJ[level];
     
   for(int it = 0; it < iterations; it++)
   {
     for (int vi = 0; vi < h.rows(); vi++)
-      sor_inner(vi, JtJ[level], Jtz_vec, h);
+      sor_inner(vi, Jtj_mat, Jtz_vec, h.data());
   }
 }
 
@@ -454,8 +454,8 @@ CUDA_HOST_DEVICE inline void sor_inner(const int vi, const JtJMatrixGrid<T>& JtJ
 
   xn -= acc;
 
-  const T w = 1.5;
-  h[vi] = (1-w) * h[vi] + w*xn/a;
+  const T w = 1.0;
+  h[vi] = (1.f-w) * h[vi] + w*xn/a;
 }
 
 template <typename T>

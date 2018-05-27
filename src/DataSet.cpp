@@ -146,7 +146,7 @@ bool DataSet::get_next_point_cloud(Eigen::MatrixXd& points, Eigen::MatrixXd &col
         if (png[(x+y*width)*bpp] == 0)
           continue;
           
-        //if (x % 8 != 0 || y % 8 != 0)
+        //if (x % 32 != 0 || y % 32 != 0)
         //  continue;
           
         Eigen::Vector3d camCoord;
