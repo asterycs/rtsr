@@ -148,6 +148,7 @@ bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int
       
     Eigen::MatrixXf cf = current_target.cast<float>();
     mesh.set_target_point_cloud(cf);
+    mesh.solve(20);
     reload_viewer_data(viewer, current_target, C, viewer_mesh_level);
     
   }

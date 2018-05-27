@@ -8,14 +8,14 @@
 #include <iostream>
 #include <cstdlib>
 
-#ifdef ENABLE_CUDA
-#include "Kernels.hpp"
-#endif
-
 template <typename T>
 Mesh<T>::Mesh()
 {
-  
+#ifdef ENABLE_CUDA
+  std::cout << " ----**** Creating mesh with CUDA solver ****----" << std::endl;
+#else
+  std::cout << " ----**** Creating mesh with CPU solver ****----" << std::endl;
+#endif  
 }
 
 template <typename T>
@@ -29,12 +29,13 @@ void Mesh<T>::cleanup()
 {
 #ifdef ENABLE_CUDA
     cudaDeviceSynchronize();
+#endif
+
     for (auto& m : JtJ)
-        JtJ.clear();
+        m.clear();
 
     for (auto& v : Jtz)
         v.clear();
-#endif
 }
 
 inline int subdivided_side_length(const int level, const int base_resolution)
@@ -174,7 +175,7 @@ void Mesh<T>::align_to_point_cloud(const Eigen::MatrixBase<Derived>& P)
     const int resolution = subdivided_side_length(li, MESH_RESOLUTION);
     
     // Scaling matrix
-    const Eigen::Transform<T, 3, Eigen::Affine> scaling(Eigen::Scaling(TvecC3(scaling_factor*bb_d(0)/(resolution-1), 0.f,scaling_factor*bb_d(2)/(resolution-1))));
+    const Eigen::Transform<T, 3, Eigen::Affine> scaling(Eigen::Scaling(TvecC3(scaling_factor*bb_d(0)/T(resolution-1), 0.f,scaling_factor*bb_d(2)/T(resolution-1))));
     
     const TvecR3 pc_mean = P.colwise().mean();
     // P_centr: mean of the point cloud
@@ -195,7 +196,7 @@ void Mesh<T>::align_to_point_cloud(const Eigen::MatrixBase<Derived>& P)
     {
       for (int x_step = 0; x_step < resolution; ++x_step)
       {
-        Eigen::Matrix<T, 1, 4> v; v << TvecR3(x_step-T(resolution-1)/2.f,T(0.0), z_step-T(resolution-1)/2.f),T(1.0);
+        Eigen::Matrix<T, 1, 4> v; v << TvecR3(T(x_step)-T(resolution-1)/2.f,T(0.0), T(z_step)-T(resolution-1)/2.f),T(1.0);
         Eigen::Matrix<T, 1, 3> pos;
         
         if (li == 0) // Only transform the first layer. Subsequent layers only denot a difference between the first
@@ -345,7 +346,7 @@ void Mesh<T>::project_points(const int level, Eigen::Matrix<T, Eigen::Dynamic, E
     T u,v,w;
     barycentric(current_point, v_a, v_b, v_c, u, v, w);
     
-    bc.row(pi) << f_idx, u, v;
+    bc.row(pi) << T(f_idx), u, v;
   }
   
 }
@@ -437,7 +438,7 @@ void Mesh<T>::sor(const int iterations, const int level, Eigen::Ref<Eigen::Matri
 }
 
 template <typename T>
-inline void sor_inner(const int vi, const JtJMatrixGrid<T>& JtJ, const JtzVector<T>& Jtz_vec, Eigen::Ref<Eigen::Matrix<T, Eigen::Dynamic, 1>> h)
+CUDA_HOST_DEVICE inline void sor_inner(const int vi, const JtJMatrixGrid<T>& JtJ, const JtzVector<T>& Jtz_vec, T* h)
 {
   T xn = Jtz_vec.get(vi);
   T acc = 0;
@@ -449,12 +450,12 @@ inline void sor_inner(const int vi, const JtJMatrixGrid<T>& JtJ, const JtzVector
   JtJ.get_matrix_values_for_vertex(vi, vals, ids, a);
 
   for (int j = 0; j < 6; ++j)
-    acc += vals[j] * h(ids[j]);
+    acc += vals[j] * h[ids[j]];
 
   xn -= acc;
 
-  const T w = 1.0;
-  h(vi) = (1-w) * h(vi) + w*xn/a;
+  const T w = 1.5;
+  h[vi] = (1-w) * h[vi] + w*xn/a;
 }
 
 template <typename T>
@@ -462,7 +463,7 @@ void Mesh<T>::sor_parallel(const int iterations, const int level, Eigen::Ref<Eig
 {
   const auto& Jtz_vec = Jtz[level];
   const auto& Jtj_mat = JtJ[level];
-  const int resolution = subdivided_side_length(level, MESH_RESOLUTION);
+  const int resolution = JtJ[level].get_mesh_width();
     
   for(int it = 0; it < iterations; it++)
   {
@@ -471,7 +472,7 @@ void Mesh<T>::sor_parallel(const int iterations, const int level, Eigen::Ref<Eig
       for (int y = 0; y < resolution; y+=2)
       {
         const int vi = x + y * resolution;
-        sor_inner(vi, Jtj_mat, Jtz_vec, h);
+        sor_inner(vi, Jtj_mat, Jtz_vec, h.data());
       }
 
 #pragma omp parallel for collapse(2)    
@@ -479,7 +480,7 @@ void Mesh<T>::sor_parallel(const int iterations, const int level, Eigen::Ref<Eig
       for (int y = 0; y < resolution; y+=2)
       {
         const int vi = x + y * resolution;
-        sor_inner(vi, Jtj_mat, Jtz_vec, h);
+        sor_inner(vi, Jtj_mat, Jtz_vec, h.data());
       }
 
 #pragma omp parallel for collapse(2)
@@ -487,7 +488,7 @@ void Mesh<T>::sor_parallel(const int iterations, const int level, Eigen::Ref<Eig
       for (int y = 1; y < resolution; y+=2)
       {
         const int vi = x + y * resolution;
-        sor_inner(vi, Jtj_mat, Jtz_vec, h);
+        sor_inner(vi, Jtj_mat, Jtz_vec, h.data());
       }
       
 #pragma omp parallel for collapse(2)
@@ -495,25 +496,43 @@ void Mesh<T>::sor_parallel(const int iterations, const int level, Eigen::Ref<Eig
       for (int y = 1; y < resolution; y+=2)
       {
         const int vi = x + y * resolution;
-        sor_inner(vi, Jtj_mat, Jtz_vec, h);
+        sor_inner(vi, Jtj_mat, Jtz_vec, h.data());
       }
   }
 }
 
 #ifdef ENABLE_CUDA
-template <typename T>
-void Mesh<T>::parallel_gpu_solve(const int, const int, Eigen::Ref<Eigen::Matrix<T, Eigen::Dynamic, 1>>) {
+__global__ void solve_kernel(const int xoffset, const int yoffset, const int mesh_width, const JtzVector<float> Jtz_vec, const JtJMatrixGrid<float> JtJ_mat, float* h) {
+	const int idx = blockIdx.x * blockDim.x + threadIdx.x;
+	
+  if (idx >= mesh_width*mesh_width)
+  {
+		return;
+	}
 
+	const int x = (idx % mesh_width);
+	const int y = (idx / mesh_width);
+	const int vi = x + y * mesh_width;
+
+	if ((x % 2 == xoffset) && (y % 2 == yoffset))
+		sor_inner(vi, JtJ_mat, Jtz_vec, h);
+}
+
+template <typename T>
+void Mesh<T>::parallel_gpu_solve(const int, const int, Eigen::Ref<Eigen::Matrix<T, Eigen::Dynamic, 1>>)
+{
     assert(false && "GPU solver works only with float meshes");
 }
 
 template <> // Works only for float meshes
-void Mesh<float>::parallel_gpu_solve(const int iterations, const int level, Eigen::Ref<Eigen::Matrix<float, Eigen::Dynamic, 1>> h) {
+void Mesh<float>::parallel_gpu_solve(const int iterations, const int level, Eigen::Ref<Eigen::Matrix<float, Eigen::Dynamic, 1>> h)
+{
     const JtJMatrixGrid<float> JtJ_mat = JtJ[level];
     const JtzVector<float> Jtz_vec = Jtz[level];
     const int mesh_width = JtJ[level].get_mesh_width();
     const int mesh_width_squared = mesh_width*mesh_width;
     const int mat_width = JtJ[level].get_matrix_width();
+    //const int mat_width_squared = mat_width*mat_width;
 
     float *devH;
     CUDA_CHECK(cudaMalloc(&devH, h.rows() * sizeof(float)));

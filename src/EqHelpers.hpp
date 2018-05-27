@@ -89,7 +89,7 @@ public:
   {
     FREE_MAT(mat);
     this->mesh_width = 0;
-    this->matrix_with = 0;
+    this->matrix_width = 0;
   }
   
  CUDA_HOST_DEVICE unsigned int get_mesh_width() const
