@@ -11,12 +11,12 @@
 template <typename T>
 Mesh<T>::Mesh()
 {
-   color_counter =  Eigen::MatrixXi::Zero(TEXTURE_RESOLUTION, TEXTURE_RESOLUTION);
+  color_counter =  Eigen::MatrixXi::Zero(TEXTURE_RESOLUTION, TEXTURE_RESOLUTION);
 
-  meshColorData.UV.resize(TEXTURE_RESOLUTION*TEXTURE_RESOLUTION, 2);
-  meshColorData.texture_red.resize(TEXTURE_RESOLUTION, TEXTURE_RESOLUTION); 
-  meshColorData.texture_green.resize(TEXTURE_RESOLUTION, TEXTURE_RESOLUTION);
-  meshColorData.texture_blue.resize(TEXTURE_RESOLUTION, TEXTURE_RESOLUTION);
+  UV.resize(TEXTURE_RESOLUTION*TEXTURE_RESOLUTION, 2);
+  texture_red.resize(TEXTURE_RESOLUTION, TEXTURE_RESOLUTION); 
+  texture_green.resize(TEXTURE_RESOLUTION, TEXTURE_RESOLUTION);
+  texture_blue.resize(TEXTURE_RESOLUTION, TEXTURE_RESOLUTION);
 }
 
 template <typename T>
@@ -341,6 +341,12 @@ void Mesh<T>::set_target_point_cloud(const Eigen::Matrix<T, Eigen::Dynamic, Eige
 {
   current_target_point_cloud = P;
 }
+template <typename T>
+void Mesh<T>::set_target_point_cloud(const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& P, const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& C)
+{ 
+  current_target_point_cloud = P;
+  current_target_point_cloud_color = C;
+}
 
 template <typename T>
 void Mesh<T>::update_weights(const int level, const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& bc, const Eigen::Matrix<T, Eigen::Dynamic, 1>& z)
@@ -547,10 +553,10 @@ void Mesh<T>::sor_parallel(const int iterations, const int level, Eigen::Ref<Eig
 }
 
 template <typename T>
-void Mesh<T>::get_mesh(const unsigned int level, Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& V_out, Eigen::MatrixXi& F_out, ColorData& colorData) const
+void Mesh<T>::get_mesh(const unsigned int level, Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& V_out, Eigen::MatrixXi& F_out, ColorData& colordata) 
 {
-    const Eigen::VectorXd bb_min = V.colwise().minCoeff();
-    const Eigen::VectorXd bb_max = V.colwise().maxCoeff();
+    const Eigen::VectorXd bb_min = V[0].colwise().minCoeff();
+    const Eigen::VectorXd bb_max = V[0].colwise().maxCoeff();
     double dx = (bb_max(0)-bb_min(0)) / (double)TEXTURE_RESOLUTION;
     double dz = (bb_max(2)-bb_min(2)) / (double)TEXTURE_RESOLUTION;
 
@@ -562,12 +568,11 @@ void Mesh<T>::get_mesh(const unsigned int level, Eigen::Matrix<T, Eigen::Dynamic
       z = std::floor(z / dz);
       int count = color_counter(x, z);
 
-      meshColorData.texture_red(x, z) = (meshColorData.texture_red(x, z) * count + (current_target_point_cloud_color(i, 0)*255)) / (count + 1);
-      meshColorData.texture_green(x, z) = (meshColorData.texture_green(x, z) * count + (current_target_point_cloud_color(i, 1)*255)) / (count + 1);
-      meshColorData.texture_blue(x, z) = (meshColorData.texture_blue(x, z) * count + (current_target_point_cloud_color(i, 2)*255)) / (count + 1);
+      texture_red(x, z) = (texture_red(x, z) * count + (current_target_point_cloud_color(i, 0)*255)) / (count + 1);
+      texture_green(x, z) = (texture_green(x, z) * count + (current_target_point_cloud_color(i, 1)*255)) / (count + 1);
+      texture_blue(x, z) = (texture_blue(x, z) * count + (current_target_point_cloud_color(i, 2)*255)) / (count + 1);
       color_counter(x, z) = color_counter(x, z) + 1;
     }
-
 
     //set UV coordinates
     dx = 1.0/(TEXTURE_RESOLUTION-1);
@@ -576,13 +581,15 @@ void Mesh<T>::get_mesh(const unsigned int level, Eigen::Matrix<T, Eigen::Dynamic
       for(int j=0; j<TEXTURE_RESOLUTION; j++)
       {
         int index = (j) * TEXTURE_RESOLUTION + i;
-        meshColorData.UV(index, 0) = i*dx;
-        meshColorData.UV(index, 1) = j*dx;
+        UV(index, 0) = i*dx;
+        UV(index, 1) = j*dx;
       }
     }
-    colorData = meshColorData;
+    colordata.UV = UV;
+    colordata.texture_red = texture_red;
+    colordata.texture_green = texture_green;
+    colordata.texture_blue = texture_blue;
 
-   
   if (level < 1 || level > MESH_LEVELS - 1)
   {
     V_out = V[0];
