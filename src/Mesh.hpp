@@ -14,6 +14,16 @@
 // pc given to align_to_point_cloud
 #define MESH_SCALING_FACTOR 1.1
 #define MESH_LEVELS 2
+#define TEXTURE_RESOLUTION 10
+
+struct ColorData
+{
+  Eigen::Matrix<unsigned char, Eigen::Dynamic, Eigen::Dynamic> texture_red;
+  Eigen::Matrix<unsigned char, Eigen::Dynamic, Eigen::Dynamic> texture_green;
+  Eigen::Matrix<unsigned char, Eigen::Dynamic, Eigen::Dynamic> texture_blue;
+  
+  Eigen::MatrixXd UV;
+};
 
 template <typename T>
 class Mesh
@@ -30,13 +40,16 @@ public:
   void solve(const int iterations);
   
   void get_mesh(const unsigned int level, Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& V_out, Eigen::MatrixXi& F_out) const;
-  
+  void get_mesh(const unsigned int level, Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& V_out, Eigen::MatrixXi& F_out, ColorData& colorData) const;
   void debug(igl::opengl::glfw::Viewer &viewer);
 
 private:
   std::vector<JtJMatrixGrid<T>, Eigen::aligned_allocator<JtJMatrixGrid<T>>> JtJ;
   std::vector<JtzVector<T>, Eigen::aligned_allocator<JtzVector<T>>> Jtz;
   Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> current_target_point_cloud;
+  Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> current_target_point_cloud_color;
+  Eigen::MatrixXi color_counter;
+  ColorData meshColorData;
   
   std::vector<Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>, Eigen::aligned_allocator<Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>>> V; // Vertices
   std::vector<Eigen::MatrixXi, Eigen::aligned_allocator<Eigen::MatrixXi>> F; // Face vertex indices

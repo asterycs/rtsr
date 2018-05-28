@@ -11,7 +11,12 @@
 template <typename T>
 Mesh<T>::Mesh()
 {
-  
+   color_counter =  Eigen::MatrixXi::Zero(TEXTURE_RESOLUTION, TEXTURE_RESOLUTION);
+
+  meshColorData.UV.resize(TEXTURE_RESOLUTION*TEXTURE_RESOLUTION, 2);
+  meshColorData.texture_red.resize(TEXTURE_RESOLUTION, TEXTURE_RESOLUTION); 
+  meshColorData.texture_green.resize(TEXTURE_RESOLUTION, TEXTURE_RESOLUTION);
+  meshColorData.texture_blue.resize(TEXTURE_RESOLUTION, TEXTURE_RESOLUTION);
 }
 
 template <typename T>
@@ -538,5 +543,62 @@ void Mesh<T>::sor_parallel(const int iterations, const int level, Eigen::Ref<Eig
         const int vi = x + y * resolution;
         sor_inner(vi, JtJ[level], Jtz_vec, h);
       }
+  }
+}
+
+template <typename T>
+void Mesh<T>::get_mesh(const unsigned int level, Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& V_out, Eigen::MatrixXi& F_out, ColorData& colorData) const
+{
+    const Eigen::VectorXd bb_min = V.colwise().minCoeff();
+    const Eigen::VectorXd bb_max = V.colwise().maxCoeff();
+    double dx = (bb_max(0)-bb_min(0)) / (double)TEXTURE_RESOLUTION;
+    double dz = (bb_max(2)-bb_min(2)) / (double)TEXTURE_RESOLUTION;
+
+    for(int i=0; i<current_target_point_cloud_color.rows(); i++)
+    { 
+      double x = current_target_point_cloud(i, 0) - bb_min(0);
+      double z = current_target_point_cloud(i, 2) - bb_min(2);
+      x = std::floor(x / dx);
+      z = std::floor(z / dz);
+      int count = color_counter(x, z);
+
+      meshColorData.texture_red(x, z) = (meshColorData.texture_red(x, z) * count + (current_target_point_cloud_color(i, 0)*255)) / (count + 1);
+      meshColorData.texture_green(x, z) = (meshColorData.texture_green(x, z) * count + (current_target_point_cloud_color(i, 1)*255)) / (count + 1);
+      meshColorData.texture_blue(x, z) = (meshColorData.texture_blue(x, z) * count + (current_target_point_cloud_color(i, 2)*255)) / (count + 1);
+      color_counter(x, z) = color_counter(x, z) + 1;
+    }
+
+
+    //set UV coordinates
+    dx = 1.0/(TEXTURE_RESOLUTION-1);
+    for(int i=0; i<TEXTURE_RESOLUTION; i++)
+    {
+      for(int j=0; j<TEXTURE_RESOLUTION; j++)
+      {
+        int index = (j) * TEXTURE_RESOLUTION + i;
+        meshColorData.UV(index, 0) = i*dx;
+        meshColorData.UV(index, 1) = j*dx;
+      }
+    }
+    colorData = meshColorData;
+
+   
+  if (level < 1 || level > MESH_LEVELS - 1)
+  {
+    V_out = V[0];
+    F_out = F[0];
+  }
+  else
+  {    
+    upsample(level, V[0], F[0], V_out, F_out);
+    
+    for (unsigned int li = 1; li <= level; ++li)
+    {
+      Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> V_upsampled;
+      Eigen::MatrixXi F_upsampled;
+      upsample(level-li, V[li], F[li], V_upsampled, F_upsampled);
+      
+       V_out.col(1) += V_upsampled.col(1);
+    }
   }
 }
