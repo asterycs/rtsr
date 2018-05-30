@@ -158,7 +158,7 @@ bool DataSet::get_next_point_cloud(Eigen::MatrixXd& points, Eigen::MatrixXd &col
         Eigen::RowVector4d world_point = camera_point.transpose();
         unsigned char* color = rgb + (x+y*rgb_width)*rgb_bpp;
         
-        if (clip && world_point[1] < 0.05) continue; // so not the shadowy side?
+        // if (clip && world_point[1] < 0.05) continue; // so not the shadowy side?
 
 #pragma omp critical
         {

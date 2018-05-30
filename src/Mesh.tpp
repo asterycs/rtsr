@@ -180,7 +180,7 @@ void Mesh<T>::align_to_point_cloud(const Eigen::MatrixBase<Derived>& P)
     //const TvecR3 pc_mean = P.colwise().mean();
     // P_centr: mean of the point cloud
     TvecR3 P_centr = bb_min + 0.5f*(bb_max - bb_min);
-    P_centr(1) = 0.0;//pc_mean(1); // Move to mean height w/r to pc instead of bb.
+    P_centr(1) = 0;
     
     const Eigen::Transform<T, 3, Eigen::Affine> t(Eigen::Translation<T, 3>(P_centr.transpose()));
     
