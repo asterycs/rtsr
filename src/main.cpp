@@ -200,7 +200,7 @@ int main(int argc, char* argv[]) {
     // igl::readOFF(argv[1],P,F,N);
     
     Eigen::MatrixXd C(1, 3);
-    C << 0.f,0.7f,0.7f;
+    // C << 0.f,0.7f,0.7f;
         
     if (argc > 2)
     {
