@@ -555,12 +555,11 @@ void Mesh<T>::sor_parallel(const int iterations, const int level, Eigen::Ref<Eig
 template <typename T>
 void Mesh<T>::get_mesh(const unsigned int level, Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& V_out, Eigen::MatrixXi& F_out, ColorData& colordata) 
 {
-
     const Eigen::VectorXd bb_min = V[0].colwise().minCoeff();
     const Eigen::VectorXd bb_max = V[0].colwise().maxCoeff();
     double dx = (bb_max(0)-bb_min(0)) / (double)TEXTURE_RESOLUTION;
     double dz = (bb_max(2)-bb_min(2)) / (double)TEXTURE_RESOLUTION;
-    std::cout<<current_target_point_cloud.rows()<<", "<<current_target_point_cloud_color.rows();
+    std::cout<<current_target_point_cloud.rows()<<", "<<current_target_point_cloud_color.rows()<<"\n\n";
 
     for(int i=0; i<current_target_point_cloud.rows(); i++)
     { 
