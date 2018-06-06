@@ -396,6 +396,9 @@ void Mesh<T>::set_target_point_cloud(const Eigen::Matrix<T, Eigen::Dynamic, Eige
 { 
   current_target_point_cloud = P;
   
+  if (C.rows() != P.rows())
+    return;
+    
   const Eigen::Matrix<T, 3, 1> bb_min = V[0].row(0);
   const Eigen::Matrix<T, 3, 1> bb_max = V[0].row(V[0].rows()-1);
 

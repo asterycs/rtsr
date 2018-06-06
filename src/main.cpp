@@ -97,6 +97,7 @@ void reload_viewer_data(igl::opengl::glfw::Viewer &viewer, const Eigen::MatrixXd
     {
       mesh.get_mesh(mesh_level, vertices, faces);
       viewer.data().set_mesh(vertices.cast<double>(), faces);
+      viewer.data().show_texture = false;
     }
 
     viewer.data().compute_normals();
@@ -116,9 +117,10 @@ bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int
     viewer.data().invert_normals = true;
   }
   
-  if (key == 'c')
+  if (static_cast<int>(key) == 67)
   {
     showMeshColor = !showMeshColor;
+    reload_viewer_data(viewer, current_target, C, viewer_mesh_level, showMeshColor);
   }
   
   if (key == '2')
@@ -130,12 +132,16 @@ bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int
     if (ds) {
       Eigen::Matrix4d t_camera;
       ds->get_next_point_cloud(current_target, C, t_camera);
-    }else
-      current_target = P2;
       
       mesh.set_target_point_cloud(current_target.cast<float>().eval(), C.cast<float>().eval());
+    }else
+    {
+      current_target = P2;
+      mesh.set_target_point_cloud(current_target.cast<float>().eval());
+    }
+    
       mesh.solve(20);
-      reload_viewer_data(viewer, current_target, C, viewer_mesh_level, false);
+      reload_viewer_data(viewer, current_target, C, viewer_mesh_level, showMeshColor);
     }
   
  /* if (key == '3' && ds)
@@ -212,8 +218,8 @@ int main(int argc, char* argv[]) {
     {
       ImGui::Text("Iterate: \"1\"");
       ImGui::Text("Next point cloud: \"2\"");
-      ImGui::Text("Current mesh level: %d", viewer_mesh_level);
-      ImGui::Text("Toggle coloring: C");
+      ImGui::Text("Change mesh level (%d): 0/+", viewer_mesh_level);
+      ImGui::Text("Toggle coloring (%s): C", showMeshColor ? "on" : "off");
     };
     
     viewer.launch();
