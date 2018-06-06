@@ -136,6 +136,7 @@ bool DataSet::get_next_point_cloud(Eigen::MatrixXd& points, Eigen::MatrixXd &col
     
     points.conservativeResize(rowcntr, Eigen::NoChange);
     colors.conservativeResize(rowcntr, Eigen::NoChange);
+
     stbi_image_free(png);
     stbi_image_free(rgb);
     next_file_idx++;
