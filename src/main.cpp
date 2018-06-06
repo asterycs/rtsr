@@ -15,6 +15,7 @@
 #include <fstream>
 #include <sstream>
 
+bool showMeshColor = false;
 int viewer_mesh_level = 0;
 Mesh<float> mesh;
 Eigen::MatrixXd P, P2, current_target, C;
@@ -34,7 +35,7 @@ void split_point_cloud(const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& P
 }
 
 template <typename T>
-void generate_example_point_cloud2(Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& P, Eigen::Matrix<int, Eigen::Dynamic, 1>& id1, Eigen::Matrix<int, Eigen::Dynamic, 1>& id2)
+void generate_example_point_cloud(Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& P, Eigen::Matrix<int, Eigen::Dynamic, 1>& id1, Eigen::Matrix<int, Eigen::Dynamic, 1>& id2)
 {
   const int size = 120;
   P.resize(size*size,3);
@@ -76,22 +77,30 @@ void generate_example_point_cloud2(Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynam
   
 }
 
-void reload_viewer_data(igl::opengl::glfw::Viewer &viewer, const Eigen::MatrixXd pc, const Eigen::MatrixXd C, const unsigned int mesh_level)
+void reload_viewer_data(igl::opengl::glfw::Viewer &viewer, const Eigen::MatrixXd pc, const Eigen::MatrixXd C, const unsigned int mesh_level, const bool color)
 {   
     viewer.data().clear();
     viewer.data().point_size = 5;
     viewer.data().add_points(pc, C);
     Eigen::MatrixXf vertices;
     Eigen::MatrixXi faces;
-    mesh.get_mesh(mesh_level, vertices, faces);
+    ColorData colorData;
+    mesh.get_mesh(mesh_level, vertices, faces, colorData);
     viewer.data().set_mesh(vertices.cast<double>(), faces);
+      
+    if (color)
+    {     
+      viewer.data().set_texture(colorData.texture.red, colorData.texture.green, colorData.texture.blue);
+      viewer.data().set_uv(colorData.UV);
+      viewer.data().show_texture = true;
+    }else
+    {
+      mesh.get_mesh(mesh_level, vertices, faces);
+      viewer.data().set_mesh(vertices.cast<double>(), faces);
+    }
+
     viewer.data().compute_normals();
     viewer.data().invert_normals = true;
-}
-
-void reload_viewer_data(igl::opengl::glfw::Viewer &viewer, const Eigen::MatrixXd pc, const unsigned int mesh_level)
-{    
-   reload_viewer_data(viewer, pc, C, mesh_level);
 }
 
 bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int /*modifier*/)
@@ -107,6 +116,11 @@ bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int
     viewer.data().invert_normals = true;
   }
   
+  if (key == 'c')
+  {
+    showMeshColor = !showMeshColor;
+  }
+  
   if (key == '2')
   {
     
@@ -119,10 +133,9 @@ bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int
     }else
       current_target = P2;
       
-      Eigen::MatrixXf cf = current_target.cast<float>();
-      mesh.set_target_point_cloud(cf);
+      mesh.set_target_point_cloud(current_target.cast<float>().eval(), C.cast<float>().eval());
       mesh.solve(20);
-      reload_viewer_data(viewer, current_target, C, viewer_mesh_level);
+      reload_viewer_data(viewer, current_target, C, viewer_mesh_level, false);
     }
   
  /* if (key == '3' && ds)
@@ -143,13 +156,13 @@ bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int
   if (key == '0')
   {
     viewer_mesh_level = viewer_mesh_level >= MESH_LEVELS - 1 ? viewer_mesh_level : viewer_mesh_level + 1;
-    reload_viewer_data(viewer, current_target, viewer_mesh_level);
+    reload_viewer_data(viewer, current_target, C, viewer_mesh_level, showMeshColor);
   }
     
   if (key == '-')
   {
     viewer_mesh_level = viewer_mesh_level < 1 ? viewer_mesh_level : viewer_mesh_level - 1;
-    reload_viewer_data(viewer, current_target, viewer_mesh_level); 
+    reload_viewer_data(viewer, current_target, C, viewer_mesh_level, showMeshColor); 
   }
   
   
@@ -173,19 +186,23 @@ int main(int argc, char* argv[]) {
       Eigen::Matrix4d t_camera;
       ds->get_next_point_cloud(P, C, t_camera);
       current_target = P;
+      
+      mesh.align_to_point_cloud(P.cast<float>().eval());
+      mesh.set_target_point_cloud(current_target.cast<float>().eval(), C.cast<float>().eval());
+      showMeshColor = true;
     } else {
       Eigen::VectorXi id1, id2;
-      generate_example_point_cloud2(P, id1, id2);
+      generate_example_point_cloud(P, id1, id2);
       split_point_cloud(P, current_target, P2, id1, id2);
+      
+      mesh.align_to_point_cloud(P.cast<float>().eval());
+      mesh.set_target_point_cloud(current_target.cast<float>().eval());
     }
-
-    mesh.align_to_point_cloud(P.cast<float>().eval());
-    mesh.set_target_point_cloud(current_target.cast<float>().eval());
     
     igl::opengl::glfw::Viewer viewer;    
     viewer.callback_key_down = callback_key_down;
     
-    reload_viewer_data(viewer, current_target, C, viewer_mesh_level);
+    reload_viewer_data(viewer, current_target, C, viewer_mesh_level, showMeshColor);
     viewer.core.align_camera_center(current_target);
     
     igl::opengl::glfw::imgui::ImGuiMenu menu;
@@ -196,6 +213,7 @@ int main(int argc, char* argv[]) {
       ImGui::Text("Iterate: \"1\"");
       ImGui::Text("Next point cloud: \"2\"");
       ImGui::Text("Current mesh level: %d", viewer_mesh_level);
+      ImGui::Text("Toggle coloring: C");
     };
     
     viewer.launch();

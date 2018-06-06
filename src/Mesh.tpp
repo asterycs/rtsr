@@ -16,6 +16,17 @@ Mesh<T>::Mesh()
 #else
   std::cout << " ----**** Creating mesh with CPU solver ****----" << std::endl;
 #endif  
+
+  color_counter =  Eigen::MatrixXi::Zero(TEXTURE_RESOLUTION, TEXTURE_RESOLUTION);
+
+  texture.red.resize(TEXTURE_RESOLUTION, TEXTURE_RESOLUTION);
+  texture.red.setZero();
+  
+  texture.green.resize(TEXTURE_RESOLUTION, TEXTURE_RESOLUTION);
+  texture.green.setZero();
+  
+  texture.blue.resize(TEXTURE_RESOLUTION, TEXTURE_RESOLUTION);
+  texture.blue.setZero();
 }
 
 template <typename T>
@@ -238,6 +249,30 @@ void Mesh<T>::align_to_point_cloud(const Eigen::MatrixBase<Derived>& P)
 }
 
 template <typename T>
+void Mesh<T>::get_mesh(const unsigned int level, Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& V_out, Eigen::MatrixXi& F_out, ColorData& colordata) const
+{
+    const int mesh_resolution = JtJ[level].get_mesh_width();
+    
+    colordata.UV.resize(mesh_resolution*mesh_resolution, 2);
+    const T tdx = T(1.0) / (mesh_resolution-1);
+    for(int i = 0; i < mesh_resolution; i++)
+    {
+      for(int j = 0; j < mesh_resolution; j++)
+      {
+        const int index = j * mesh_resolution + i;
+        colordata.UV(index, 0) = i*tdx;
+        colordata.UV(index, 1) = j*tdx;
+      }
+    }
+    
+    colordata.texture.red = texture.red;
+    colordata.texture.green = texture.green;
+    colordata.texture.blue = texture.blue;
+    
+    get_mesh(level, V_out, F_out);
+}
+
+template <typename T>
 void Mesh<T>::get_mesh(const unsigned int level, Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& V_out, Eigen::MatrixXi& F_out) const
 {
   if (level < 1 || level > MESH_LEVELS - 1)
@@ -354,6 +389,39 @@ template <typename T>
 void Mesh<T>::set_target_point_cloud(const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& P)
 {
   current_target_point_cloud = P;
+}
+
+template <typename T>
+void Mesh<T>::set_target_point_cloud(const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& P, const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& C)
+{ 
+  current_target_point_cloud = P;
+  
+  const Eigen::Matrix<T, 3, 1> bb_min = V[0].row(0);
+  const Eigen::Matrix<T, 3, 1> bb_max = V[0].row(V[0].rows()-1);
+
+  const T cdx = (bb_max(0)-bb_min(0)) / static_cast<T>(TEXTURE_RESOLUTION-1);
+  const T cdz = (bb_max(2)-bb_min(2)) / static_cast<T>(TEXTURE_RESOLUTION-1);
+
+  for(int i=0; i<current_target_point_cloud.rows(); i++)
+  { 
+    T x = current_target_point_cloud(i, 0) - bb_min(0);
+    T z = current_target_point_cloud(i, 2) - bb_min(2);
+    x = std::floor(x / cdx);
+    z = std::floor(z / cdz);
+    
+    Eigen::Index xi = static_cast<Eigen::Index>(x);
+    Eigen::Index zi = static_cast<Eigen::Index>(z);
+    
+    if (xi >= color_counter.rows() || zi >= color_counter.cols() || xi < 0 || zi < 0)
+      continue;
+
+    const int count = color_counter(xi, zi);
+
+    texture.red(xi, zi) = static_cast<unsigned char>((texture.red(xi, zi) * count + (C(i, 0)*255)) / (count + 1));
+    texture.green(xi, zi) = static_cast<unsigned char>((texture.green(xi, zi) * count + (C(i, 1)*255)) / (count + 1));
+    texture.blue(xi, zi) = static_cast<unsigned char>((texture.blue(xi, zi) * count + (C(i, 2)*255)) / (count + 1));
+    color_counter(xi, zi) = color_counter(xi, zi) + 1;
+  }
 }
 
 template <typename T>
