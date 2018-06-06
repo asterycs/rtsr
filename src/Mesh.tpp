@@ -563,12 +563,12 @@ void Mesh<T>::get_mesh(const unsigned int level, Eigen::Matrix<T, Eigen::Dynamic
 
     for(int i=0; i<current_target_point_cloud.rows(); i++)
     { 
-      T x = std::abs(current_target_point_cloud(i, 0) - bb_min(0));
-      T z = std::abs(current_target_point_cloud(i, 2) - bb_min(2));
+      T x = current_target_point_cloud(i, 0) - bb_min(0);
+      T z = current_target_point_cloud(i, 2) - bb_min(2);
       x = std::floor(x / cdx);
       z = std::floor(z / cdz);
       
-      if (x >= color_counter.rows() || z >= color_counter.cols())
+      if (x >= color_counter.rows() || z >= color_counter.cols() || x < 0 || z < 0)
         continue;
         
       int count = color_counter(x, z);
