@@ -17,6 +17,15 @@ Mesh<T>::Mesh()
   texture_red.resize(TEXTURE_RESOLUTION, TEXTURE_RESOLUTION); 
   texture_green.resize(TEXTURE_RESOLUTION, TEXTURE_RESOLUTION);
   texture_blue.resize(TEXTURE_RESOLUTION, TEXTURE_RESOLUTION);
+  for(int i=0; i<TEXTURE_RESOLUTION; i++)
+  {
+    for(int j=0; j<TEXTURE_RESOLUTION;j++)
+    {
+      texture_red(i, j) = 255;
+      texture_green(i, j) = 255;
+      texture_blue(i, j) = 255;
+    }
+  }
 }
 
 template <typename T>
@@ -559,8 +568,8 @@ void Mesh<T>::get_mesh(const unsigned int level, Eigen::Matrix<T, Eigen::Dynamic
     const Eigen::VectorXd bb_max = V[0].colwise().maxCoeff();
     double dx = (bb_max(0)-bb_min(0)) / (double)TEXTURE_RESOLUTION;
     double dz = (bb_max(2)-bb_min(2)) / (double)TEXTURE_RESOLUTION;
-    std::cout<<current_target_point_cloud.rows()<<", "<<current_target_point_cloud_color.rows()<<"\n\n";
 
+  
     for(int i=0; i<current_target_point_cloud.rows(); i++)
     { 
       double x = current_target_point_cloud(i, 0) - bb_min(0);
@@ -608,5 +617,19 @@ void Mesh<T>::get_mesh(const unsigned int level, Eigen::Matrix<T, Eigen::Dynamic
       
        V_out.col(1) += V_upsampled.col(1);
     }
+  }
+
+  using TvecR3 = Eigen::Matrix<T, 1, 3>;
+  const TvecR3 pc_mean = current_target_point_cloud.colwise().mean();
+  for(int i=0; i<MESH_RESOLUTION; i++)
+  {
+    for(int j=0; j<MESH_RESOLUTION; j++)
+    {
+      int index = (j) * MESH_RESOLUTION + i;
+      if(color_counter(i, j) == 0)
+      {
+         V_out(index, 1) = pc_mean(1);
+      }
+    } 
   }
 }

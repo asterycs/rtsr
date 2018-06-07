@@ -29,10 +29,6 @@ Eigen::MatrixXd N;
 Eigen::MatrixXd UV;
 Eigen::MatrixXd VC;
 
-Eigen::Matrix<unsigned char,  Eigen::Dynamic, Eigen::Dynamic> texture_red;
-Eigen::Matrix<unsigned char,  Eigen::Dynamic, Eigen::Dynamic> texture_green;
-Eigen::Matrix<unsigned char,  Eigen::Dynamic, Eigen::Dynamic> texture_blue;
-
 
 template <typename T>
 void split_point_cloud(const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& P, Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& P1, Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& P2, const Eigen::Matrix<int, Eigen::Dynamic, 1>& id1, Eigen::Matrix<int, Eigen::Dynamic, 1>& id2)
@@ -147,10 +143,11 @@ bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int
 {
   if (key == '1')
   {
-    mesh.solve(10);
+    ColorData c;
+    mesh.solve(100);
     Eigen::MatrixXd vertices;
     Eigen::MatrixXi faces;
-    mesh.get_mesh(viewer_mesh_level, vertices, faces);
+    mesh.get_mesh(viewer_mesh_level, vertices, faces, c);
     viewer.data().set_mesh(vertices, faces);
     viewer.data().compute_normals();
     viewer.data().invert_normals = true;
@@ -199,7 +196,7 @@ int main(int argc, char* argv[]) {
     // Read points and normals
     // igl::readOFF(argv[1],P,F,N);
     
-    Eigen::MatrixXd C(1, 3);
+    /*Eigen::MatrixXd C(1, 3);
     // C << 0.f,0.7f,0.7f;
         
     if (argc > 2)
@@ -236,12 +233,12 @@ int main(int argc, char* argv[]) {
       ImGui::Text("Current mesh level: %d", viewer_mesh_level);
     };
 
-    viewer.launch();
+    viewer.launch();*/
 
 
     //************************************************MINION SAMPLE*********************************************
     // Load a mesh in OFF format
-    /*std::vector<std::vector<double > > VList;
+    std::vector<std::vector<double > > VList;
     std::vector<std::vector<int > > FList;
     std::vector<std::vector<double > > NList;
     std::vector<std::vector<double > > CList;
@@ -287,6 +284,6 @@ int main(int argc, char* argv[]) {
       ImGui::Text("Current mesh level: %d", viewer_mesh_level);
     };
     // viewer.core.align_camera_center(V,F);
-    viewer.launch();*/
+    viewer.launch();
 
 }
