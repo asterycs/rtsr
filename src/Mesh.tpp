@@ -566,16 +566,20 @@ void Mesh<T>::get_mesh(const unsigned int level, Eigen::Matrix<T, Eigen::Dynamic
 {
     const Eigen::VectorXd bb_min = V[0].colwise().minCoeff();
     const Eigen::VectorXd bb_max = V[0].colwise().maxCoeff();
-    double dx = (bb_max(0)-bb_min(0)) / (double)TEXTURE_RESOLUTION;
-    double dz = (bb_max(2)-bb_min(2)) / (double)TEXTURE_RESOLUTION;
 
+    const T cdx = (bb_max(0)-bb_min(0)) / static_cast<T>(TEXTURE_RESOLUTION-1);
+    const T cdz = (bb_max(2)-bb_min(2)) / static_cast<T>(TEXTURE_RESOLUTION-1);
   
     for(int i=0; i<current_target_point_cloud.rows(); i++)
     { 
-      double x = current_target_point_cloud(i, 0) - bb_min(0);
-      double z = current_target_point_cloud(i, 2) - bb_min(2);
-      x = std::floor(x / dx);
-      z = std::floor(z / dz);
+      T x = current_target_point_cloud(i, 0) - bb_min(0);
+      T z = current_target_point_cloud(i, 2) - bb_min(2);
+      x = std::floor(x / cdx);
+      z = std::floor(z / cdz);
+      
+      if (x >= color_counter.rows() || z >= color_counter.cols() || x < 0 || z < 0)
+        continue;
+        
       int count = color_counter(x, z);
 
       texture_red(x, z) = (texture_red(x, z) * count + (current_target_point_cloud_color(i, 0)*255)) / (count + 1);
@@ -585,14 +589,14 @@ void Mesh<T>::get_mesh(const unsigned int level, Eigen::Matrix<T, Eigen::Dynamic
     }
 
     //set UV coordinates
-    dx = 1.0/(TEXTURE_RESOLUTION-1);
-    for(int i=0; i<TEXTURE_RESOLUTION; i++)
+    const T tdx = 1.0 / (TEXTURE_RESOLUTION-1);
+    for(int i = 0; i < TEXTURE_RESOLUTION; i++)
     {
-      for(int j=0; j<TEXTURE_RESOLUTION; j++)
+      for(int j = 0; j < TEXTURE_RESOLUTION; j++)
       {
         int index = (j) * TEXTURE_RESOLUTION + i;
-        UV(index, 0) = i*dx;
-        UV(index, 1) = j*dx;
+        UV(index, 0) = i*tdx;
+        UV(index, 1) = j*tdx;
       }
     }
     colordata.UV = UV;
