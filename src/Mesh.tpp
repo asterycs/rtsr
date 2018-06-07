@@ -337,7 +337,7 @@ void Mesh<T>::project_points(const int level, Eigen::Matrix<T, Eigen::Dynamic, E
     const int r = static_cast<int>(offset(1) / dy);
     
     const int inner_size = resolution - 1;
-    if (c >= inner_size || r >= inner_size)
+    if (c >= inner_size || r >= inner_size || c < 0 || r < 0)
     {
       bc.row(pi) << -1, T(0.0), T(0.0);
       continue;
@@ -482,7 +482,7 @@ void Mesh<T>::solve(const int iterations)
 #ifdef ENABLE_CUDA
   sor_gpu(iterations, 0, V[0].col(1));
 #else
-  sor(iterations, 0, V[0].col(1));
+  sor_parallel(iterations, 0, V[0].col(1));
 #endif
   
   for (int li = 1; li < MESH_LEVELS; ++li)
@@ -518,7 +518,7 @@ void Mesh<T>::solve(const int iterations)
 #ifdef ENABLE_CUDA
       sor_gpu(iterations, li, V[li].col(1));
 #else
-      sor(iterations, li, V[li].col(1));
+      sor_parallel(iterations, li, V[li].col(1));
 #endif
   }
 }
@@ -555,8 +555,6 @@ CUDA_HOST_DEVICE inline void sor_inner(const int vi, const JtJMatrixGrid<T>& JtJ
 
   const T w = 1.0;
   h[vi] = (1.f-w) * h[vi] + w*xn/a;
-  
-  //std::cout << h[vi] << std::endl;
 }
 
 template <typename T>
