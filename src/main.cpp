@@ -144,7 +144,7 @@ bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int
   if (key == '1')
   {
     ColorData c;
-    mesh.solve(100);
+    mesh.solve(10);
     Eigen::MatrixXd vertices;
     Eigen::MatrixXi faces;
     mesh.get_mesh(viewer_mesh_level, vertices, faces, c);
