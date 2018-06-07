@@ -19,14 +19,9 @@ Mesh<T>::Mesh()
 
   color_counter =  Eigen::MatrixXi::Zero(TEXTURE_RESOLUTION, TEXTURE_RESOLUTION);
 
-  texture.red.resize(TEXTURE_RESOLUTION, TEXTURE_RESOLUTION);
-  texture.red.setZero();
-  
-  texture.green.resize(TEXTURE_RESOLUTION, TEXTURE_RESOLUTION);
-  texture.green.setZero();
-  
-  texture.blue.resize(TEXTURE_RESOLUTION, TEXTURE_RESOLUTION);
-  texture.blue.setZero();
+  texture.red = Eigen::Matrix<unsigned char, Eigen::Dynamic, Eigen::Dynamic>::Constant(TEXTURE_RESOLUTION,TEXTURE_RESOLUTION, static_cast<unsigned char>(215));
+  texture.green = Eigen::Matrix<unsigned char, Eigen::Dynamic, Eigen::Dynamic>::Constant(TEXTURE_RESOLUTION,TEXTURE_RESOLUTION, static_cast<unsigned char>(215));
+  texture.blue = Eigen::Matrix<unsigned char, Eigen::Dynamic, Eigen::Dynamic>::Constant(TEXTURE_RESOLUTION,TEXTURE_RESOLUTION, static_cast<unsigned char>(215));
 }
 
 template <typename T>
@@ -186,7 +181,7 @@ void Mesh<T>::align_to_point_cloud(const Eigen::MatrixBase<Derived>& P)
     const int resolution = subdivided_side_length(li, MESH_RESOLUTION);
     
     // Scaling matrix
-    const Eigen::Transform<T, 3, Eigen::Affine> scaling(Eigen::Scaling(TvecC3(scaling_factor*bb_d(0)/T(resolution-1), 0.f,scaling_factor*bb_d(2)/T(resolution-1))));
+    const Eigen::Transform<T, 3, Eigen::Affine> scaling(Eigen::Scaling(TvecC3(scaling_factor*bb_d(0)/T(resolution), 0.f,scaling_factor*bb_d(2)/T(resolution))));
     
     //const TvecR3 pc_mean = P.colwise().mean();
     // P_centr: mean of the point cloud
@@ -389,12 +384,31 @@ template <typename T>
 void Mesh<T>::set_target_point_cloud(const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& P)
 {
   current_target_point_cloud = P;
+  
+  using TMat = Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>;
+  
+  // First fuse to base level
+  TMat bc;
+  project_points(0, bc);
+  update_JtJ(0, bc); // Update lh
+  update_Jtz(0, bc, current_target_point_cloud.col(1));
+  
+  for (int li = 1; li < MESH_LEVELS; ++li)
+  { 
+    Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> V_upsampled;
+    Eigen::MatrixXi F_upsampled;
+    
+    get_mesh(li, V_upsampled, F_upsampled);
+    project_points(li, bc);
+    
+    update_JtJ(li, bc); // Update lh
+  }  
 }
 
 template <typename T>
 void Mesh<T>::set_target_point_cloud(const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& P, const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& C)
 { 
-  current_target_point_cloud = P;
+  set_target_point_cloud(P);
   
   if (C.rows() != P.rows())
     return;
@@ -419,7 +433,7 @@ void Mesh<T>::set_target_point_cloud(const Eigen::Matrix<T, Eigen::Dynamic, Eige
       continue;
 
     const int count = color_counter(xi, zi);
-
+    
     texture.red(xi, zi) = static_cast<unsigned char>((texture.red(xi, zi) * count + (C(i, 0)*255)) / (count + 1));
     texture.green(xi, zi) = static_cast<unsigned char>((texture.green(xi, zi) * count + (C(i, 1)*255)) / (count + 1));
     texture.blue(xi, zi) = static_cast<unsigned char>((texture.blue(xi, zi) * count + (C(i, 2)*255)) / (count + 1));
@@ -428,7 +442,7 @@ void Mesh<T>::set_target_point_cloud(const Eigen::Matrix<T, Eigen::Dynamic, Eige
 }
 
 template <typename T>
-void Mesh<T>::update_weights(const int level, const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& bc, const Eigen::Matrix<T, Eigen::Dynamic, 1>& z)
+void Mesh<T>::update_JtJ(const int level, const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& bc)
 {    
   for (int i = 0; i < bc.rows(); ++i)
   {
@@ -438,6 +452,19 @@ void Mesh<T>::update_weights(const int level, const Eigen::Matrix<T, Eigen::Dyna
       continue;
     
     JtJ[level].update_triangle(static_cast<int>(row(0)), row(1), row(2));
+  }
+}
+
+template <typename T>
+void Mesh<T>::update_Jtz(const int level, const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& bc, const Eigen::Matrix<T, Eigen::Dynamic, 1>& z)
+{    
+  for (int i = 0; i < bc.rows(); ++i)
+  {
+    const Eigen::Matrix<T, 1, 3>& row = bc.row(i);
+
+    if (static_cast<int>(row(0)) == -1)
+      continue;
+    
     Jtz[level].update_triangle(static_cast<int>(row(0)), row(1), row(2), z(i));
   }
 }
@@ -450,13 +477,12 @@ void Mesh<T>::solve(const int iterations)
   
   // First fuse to base level
   TMat bc;
-  project_points(0, bc);
-  update_weights(0, bc, current_target_point_cloud.col(1));
 
+// lh and rh for first layer already updated in set_target_point_cloud
 #ifdef ENABLE_CUDA
-  parallel_gpu_solve(iterations, 0, V[0].col(1));
+  sor_gpu(iterations, 0, V[0].col(1));
 #else
-  sor_parallel(iterations, 0, V[0].col(1));
+  sor(iterations, 0, V[0].col(1));
 #endif
   
   for (int li = 1; li < MESH_LEVELS; ++li)
@@ -468,6 +494,7 @@ void Mesh<T>::solve(const int iterations)
     get_mesh(li, V_upsampled, F_upsampled);
     project_points(li, bc);
     
+    // Compute residual
 #pragma omp parallel for
     for (int pi = 0; pi < bc.rows(); ++pi)
     {
@@ -478,19 +505,20 @@ void Mesh<T>::solve(const int iterations)
       const TvecC3 v1 = V_upsampled.row(F_upsampled.row(static_cast<int>(bc.row(pi)(0)))(1));
       const TvecC3 v2 = V_upsampled.row(F_upsampled.row(static_cast<int>(bc.row(pi)(0)))(2));
       
-      // Ideally these should be equal
+      // Ideally these should be equal, then there is no error
       const TvecC3 solved_point = bc.row(pi)(1) * v0 + bc.row(pi)(2) * v1 + (1.f - bc.row(pi)(1) - bc.row(pi)(2)) * v2;
       const TvecC3 measured_point = current_target_point_cloud.row(pi);
       
       point_with_residual_height.row(pi) = measured_point - solved_point;
     }
     
-    update_weights(li, bc, point_with_residual_height.col(1));
+    // Update equation rh with residual
+    update_Jtz(li, bc, point_with_residual_height.col(1));
 
 #ifdef ENABLE_CUDA
-      parallel_gpu_solve(iterations, li, V[li].col(1));
+      sor_gpu(iterations, li, V[li].col(1));
 #else
-      sor_parallel(iterations, li, V[li].col(1));
+      sor(iterations, li, V[li].col(1));
 #endif
   }
 }
@@ -527,6 +555,8 @@ CUDA_HOST_DEVICE inline void sor_inner(const int vi, const JtJMatrixGrid<T>& JtJ
 
   const T w = 1.0;
   h[vi] = (1.f-w) * h[vi] + w*xn/a;
+  
+  //std::cout << h[vi] << std::endl;
 }
 
 template <typename T>
@@ -590,13 +620,13 @@ __global__ void solve_kernel(const int xoffset, const int yoffset, const int mes
 }
 
 template <typename T>
-void Mesh<T>::parallel_gpu_solve(const int, const int, Eigen::Ref<Eigen::Matrix<T, Eigen::Dynamic, 1>>)
+void Mesh<T>::sor_gpu(const int, const int, Eigen::Ref<Eigen::Matrix<T, Eigen::Dynamic, 1>>)
 {
     assert(false && "GPU solver works only with float meshes");
 }
 
 template <> // Works only for float meshes
-void Mesh<float>::parallel_gpu_solve(const int iterations, const int level, Eigen::Ref<Eigen::Matrix<float, Eigen::Dynamic, 1>> h)
+void Mesh<float>::sor_gpu(const int iterations, const int level, Eigen::Ref<Eigen::Matrix<float, Eigen::Dynamic, 1>> h)
 {
     const JtJMatrixGrid<float> JtJ_mat = JtJ[level];
     const JtzVector<float> Jtz_vec = Jtz[level];

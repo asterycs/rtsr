@@ -1,8 +1,15 @@
 #ifndef MESH_HPP
 #define MESH_HPP
 
+// The Eigen version included by igl does not fully support CUDA 9
+#if __CUDACC_VER_MAJOR__ >= 9
+#undef __CUDACC_VER__
+#define __CUDACC_VER__ \
+  ((__CUDACC_VER_MAJOR__ * 10000) + (__CUDACC_VER_MINOR__ * 100))
+#endif
 #include <Eigen/StdVector>
 #include <Eigen/Geometry>
+
 #include <cassert>
 #include <ostream>
 
@@ -13,7 +20,7 @@
 // Scale factor. 1 makes the mesh the same size as the bounding box of the
 // point cloud given to align_to_point_cloud
 #define MESH_SCALING_FACTOR 2.0
-#define MESH_LEVELS 6
+#define MESH_LEVELS 5
 #define TEXTURE_RESOLUTION 40
 
 struct Texture
@@ -64,11 +71,12 @@ private:
   void sor_parallel(const int iterations, const int level, Eigen::Ref<Eigen::Matrix<T, Eigen::Dynamic, 1>> h) const;
   
 #ifdef ENABLE_CUDA
-  void parallel_gpu_solve(const int iterations, const int level, Eigen::Ref<Eigen::Matrix<T, Eigen::Dynamic, 1>> h);
+  void sor_gpu(const int iterations, const int level, Eigen::Ref<Eigen::Matrix<T, Eigen::Dynamic, 1>> h);
 #endif
   
   void project_points(const int level, Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& bc) const;
-  void update_weights(const int level, const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& bc, const Eigen::Matrix<T, Eigen::Dynamic, 1>& z);
+  void update_JtJ(const int level, const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& bc);
+  void update_Jtz(const int level, const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& bc, const Eigen::Matrix<T, Eigen::Dynamic, 1>& z);
 };
 
 #include "Mesh.tpp"

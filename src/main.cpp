@@ -1,3 +1,11 @@
+
+// The Eigen version included by igl does not fully support CUDA 9
+#if __CUDACC_VER_MAJOR__ >= 9
+#undef __CUDACC_VER__
+#define __CUDACC_VER__ \
+  ((__CUDACC_VER_MAJOR__ * 10000) + (__CUDACC_VER_MINOR__ * 100))
+#endif
+
 #include "igl/opengl/glfw/Viewer.h"
 #include "igl/readOFF.h"
 #include "igl/fit_plane.h"
