@@ -8,6 +8,7 @@
 #include <iomanip>
 #include <Eigen/Dense>
 
+#ifdef PCL_AVAILABLE
 #include <pcl/ModelCoefficients.h>
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_types.h>
@@ -15,6 +16,7 @@
 #include <pcl/sample_consensus/model_types.h>
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/filters/extract_indices.h>
+#endif
 
 std::string strip_file_suffix(const std::string& s)
 {
@@ -99,8 +101,11 @@ DataSet::DataSet(const std::string& folder) : next_file_idx(0), folder_path(fold
   Eigen::MatrixXd P, C;
   Eigen::Matrix4d t_camera;
   get_next_point_cloud(P, C, t_camera);
+  
+#ifdef PCL_AVAILABLE
   Eigen::Affine3f r = findPlaneRotation(P);
   rOffset = r.matrix().cast<double>();
+#endif
   clip = true;
 }
 
@@ -162,7 +167,11 @@ bool DataSet::get_next_point_cloud(Eigen::MatrixXd& points, Eigen::MatrixXd &col
 
 #pragma omp critical
         {
+#ifdef PCL_AVAILABLE
           points.row(rowcntr) << world_point[0], world_point[1], world_point[2];
+#else
+          points.row(rowcntr) << world_point[0], world_point[2], world_point[1];
+#endif
           colors.row(rowcntr) << (float)color[0]/255, (float)color[1]/255, (float)color[2]/255;
           ++rowcntr;
         }
@@ -280,10 +289,11 @@ std::string DataSet::get_next_rgb(const double timestamp)
 }
 
 
+#ifdef PCL_AVAILABLE
 Eigen::Affine3f DataSet::findPlaneRotation(Eigen::MatrixXd& points) {
   // Use Ransac
 
-  long int size = points.rows();
+  const long int size = points.rows();
 
   pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
   cloud->width = size;
@@ -358,3 +368,4 @@ Eigen::Affine3f DataSet::findPlaneRotation(Eigen::MatrixXd& points) {
 
   return transform_2 * transform_1;
 }
+#endif
