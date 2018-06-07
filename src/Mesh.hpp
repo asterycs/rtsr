@@ -63,6 +63,8 @@ private:
   Eigen::MatrixXi color_counter;
   Texture texture;
   
+  std::vector<std::vector<std::vector<T>>> residuals; // For convergence analysis. [pc][level][iteration]
+  
   std::vector<Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>, Eigen::aligned_allocator<Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>>> V; // Vertices
   std::vector<Eigen::MatrixXi, Eigen::aligned_allocator<Eigen::MatrixXi>> F; // Face vertex indices
   Eigen::Matrix<T, 4, 4> transform; // Mesh location and orientation

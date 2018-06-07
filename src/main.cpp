@@ -47,8 +47,8 @@ void generate_example_point_cloud(Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynami
 {
   const int size = 120;
   P.resize(size*size,3);
-  id1.resize(size*int(size * 0.55));
-  id2.resize(size*int(size * 0.55));
+  id1.resize(size*int(size / 2));
+  id2.resize(size*int((size+1) / 2));
   
   int cntr1 = 0, cntr2 = 0;
   for (int x = 0; x < size; ++x)
@@ -58,7 +58,7 @@ void generate_example_point_cloud(Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynami
     {
       T height;
       
-      if (int(y / (size / (5*multipl))) % 2 == 0)
+      if (int(y / (size / (5*multipl))) % 2)
         height = 15;
       else
         height = 0;
@@ -66,12 +66,7 @@ void generate_example_point_cloud(Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynami
       Eigen::Matrix<T, 1, 3> row(T(x), height, T(y));
       P.row(x + y*size) = row;
       
-      if (x > size * 0.45 && x < size * 0.55)
-      {
-        id1(cntr1++) = x + y*size;
-        id2(cntr2++) = x + y*size;
-      }
-      else if (x < size * 0.45)
+      if (x < size / 2)
       {
         id1(cntr1++) = x + y*size;
       }
@@ -116,7 +111,7 @@ bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int
 {
   if (key == '1')
   {
-    mesh.solve(20);
+    mesh.solve(1);
     Eigen::MatrixXf vertices;
     Eigen::MatrixXi faces;
     mesh.get_mesh(viewer_mesh_level, vertices, faces);
@@ -147,8 +142,7 @@ bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int
       current_target = P2;
       mesh.set_target_point_cloud(current_target.cast<float>().eval());
     }
-    
-      mesh.solve(20);
+  
       reload_viewer_data(viewer, current_target, C, viewer_mesh_level, showMeshColor);
     }
   

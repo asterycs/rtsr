@@ -3,7 +3,7 @@ close all;
 
 D = csvread('error.csv',1);
 
-PC_IDX = 0;
+PC_IDX = 1;
 LEVELS = 3;
 lgdstr = cell(1,LEVELS+1);
 
@@ -17,4 +17,5 @@ end
 
 lgd = legend(lgdstr);
 lgd.FontSize = 14;
+axis tight;
 

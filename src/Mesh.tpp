@@ -7,6 +7,7 @@
 
 #include <iostream>
 #include <cstdlib>
+#include <iostream>
 
 template <typename T>
 Mesh<T>::Mesh()
@@ -27,7 +28,20 @@ Mesh<T>::Mesh()
 template <typename T>
 Mesh<T>::~Mesh()
 {
+  std::ofstream residual_file;
+  residual_file.open("error.csv");
+  residual_file << "pc_idx,level,iteration,residuals\n";
 
+  for (int pci = 0; pci < residuals.size(); ++pci)
+  {
+    for (int li = 0; li < residuals[pci].size(); ++li)
+    {
+      for (int it = 0; it < residuals[pci][li].size(); ++it)
+        residual_file << pci << "," << li << "," << it << "," << residuals[pci][li][it] << std::endl;
+    }
+  }
+
+  residual_file.close();
 }
 
 template <typename T>
@@ -387,6 +401,8 @@ void Mesh<T>::set_target_point_cloud(const Eigen::Matrix<T, Eigen::Dynamic, Eige
   
   using TMat = Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>;
   
+  residuals.push_back(std::vector<std::vector<T>>(MESH_LEVELS-1));
+  
   // First fuse to base level
   TMat bc;
   project_points(0, bc);
@@ -426,8 +442,8 @@ void Mesh<T>::set_target_point_cloud(const Eigen::Matrix<T, Eigen::Dynamic, Eige
     x = std::floor(x / cdx);
     z = std::floor(z / cdz);
     
-    Eigen::Index xi = static_cast<Eigen::Index>(x);
-    Eigen::Index zi = static_cast<Eigen::Index>(z);
+    const int xi = static_cast<int>(x);
+    const int zi = static_cast<int>(z);
     
     if (xi >= color_counter.rows() || zi >= color_counter.cols() || xi < 0 || zi < 0)
       continue;
@@ -487,7 +503,7 @@ void Mesh<T>::solve(const int iterations)
   
   for (int li = 1; li < MESH_LEVELS; ++li)
   {
-    TMat point_with_residual_height = TMat::Zero(current_target_point_cloud.rows(), current_target_point_cloud.cols());
+    TMat residual_height = TMat::Zero(current_target_point_cloud.rows(), current_target_point_cloud.cols());
     
     Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> V_upsampled;
     Eigen::MatrixXi F_upsampled;
@@ -509,11 +525,13 @@ void Mesh<T>::solve(const int iterations)
       const TvecC3 solved_point = bc.row(pi)(1) * v0 + bc.row(pi)(2) * v1 + (1.f - bc.row(pi)(1) - bc.row(pi)(2)) * v2;
       const TvecC3 measured_point = current_target_point_cloud.row(pi);
       
-      point_with_residual_height.row(pi) = measured_point - solved_point;
+      residual_height.row(pi) = measured_point - solved_point;
     }
     
+    residuals.back()[li-1].push_back(residual_height.array().sum());
+    
     // Update equation rh with residual
-    update_Jtz(li, bc, point_with_residual_height.col(1));
+    update_Jtz(li, bc, residual_height.col(1));
 
 #ifdef ENABLE_CUDA
       sor_gpu(iterations, li, V[li].col(1));
@@ -553,7 +571,7 @@ CUDA_HOST_DEVICE inline void sor_inner(const int vi, const JtJMatrixGrid<T>& JtJ
 
   xn -= acc;
 
-  const T w = 1.0;
+  const T w = 0.5;
   h[vi] = (1.f-w) * h[vi] + w*xn/a;
 }
 
