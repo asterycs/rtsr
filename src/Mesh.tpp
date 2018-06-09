@@ -571,7 +571,7 @@ CUDA_HOST_DEVICE inline void sor_inner(const int vi, const JtJMatrixGrid<T>& JtJ
 
   xn -= acc;
 
-  const T w = 1.5;
+  const T w = 1.0;
   h[vi] = (1.f-w) * h[vi] + w*xn/a;
 }
 
@@ -627,8 +627,8 @@ __global__ void solve_kernel(const int xoffset, const int yoffset, const int mes
 	    return;
     }
 
-	const int x = ((idx * 2) % mesh_width);
-	const int y = ((idx * 2) / mesh_width);
+	const int x = ((idx) % mesh_width);
+	const int y = ((idx) / mesh_width);
 	const int vi = x + y * mesh_width;
 
 	if ((x % 2 == xoffset) && (y % 2 == yoffset))
