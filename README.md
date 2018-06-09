@@ -11,13 +11,10 @@ git clone --recursive https://github.com/asterycs/rtsr.git
 # Additional dependencies
 The project has a CUDA extension, and this is handled in such a way that a fairly recent CMake version is required. This project has been tested with CMake v3.10.2 but others might work as well. Adjust the required version in CMakeLists.txt if required.  
 
-We use PCL for principal plane detection in the point clouds. Therefore you need to have the PCL development files prior to build.
+We use PCL for principal plane detection in the point clouds. Therefore you need to have the PCL development files prior to build for principal plane detection to work. If CMake doesn't detect pcl, these features are left out.
 
 On Ubuntu and similar:
-```
-apt install libpcl-dev
-```
-or build from source and point CMake to the correct installation directory.
+Do NOT install pcl via the package manager. PCL depends on an Eigen version that will be selected by CMake, but it is not compatible with this project. Build it from source and point CMake to the correct installation directory.
 
 Additionally, for the CUDA features you need the CUDA toolkit. The project has been compiled with versions 9.1 and 9.2. The CUDA toolkit can be obtained from []{https://developer.nvidia.com/cuda-downloads}.
 

@@ -1,12 +1,6 @@
 #ifndef MESH_HPP
 #define MESH_HPP
 
-// The Eigen version included by igl does not fully support CUDA 9
-#if __CUDACC_VER_MAJOR__ >= 9
-#undef __CUDACC_VER__
-#define __CUDACC_VER__ \
-  ((__CUDACC_VER_MAJOR__ * 10000) + (__CUDACC_VER_MINOR__ * 100))
-#endif
 #include <Eigen/StdVector>
 #include <Eigen/Geometry>
 
@@ -15,13 +9,14 @@
 
 #include "EqHelpers.hpp"
 
-// Number of vertices along one dimension
+// Number of vertices along one dimension in the base layer
 #define MESH_RESOLUTION 5
-// Scale factor. 1 makes the mesh the same size as the bounding box of the
+// Scale factor of 1 makes the mesh the same size as the bounding box of the
 // point cloud given to align_to_point_cloud
-#define MESH_SCALING_FACTOR 2.0
-#define MESH_LEVELS 5
-#define TEXTURE_RESOLUTION 40
+#define MESH_SCALING_FACTOR 2.33
+// Multiresolution levels. 1 is a single resolution mesh
+#define MESH_LEVELS 7
+#define TEXTURE_RESOLUTION 300
 
 struct Texture
 {
