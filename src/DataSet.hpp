@@ -14,10 +14,13 @@ public:
   DataSet(const std::string& folder);
   ~DataSet();
   
+  void subscribe(void (*getData)(const Eigen::MatrixXd points, const Eigen::MatrixXd colors));
   bool get_next_point_cloud(Eigen::MatrixXd& P, Eigen::MatrixXd &colors, Eigen::Matrix4d& t_camera);
   Eigen::Affine3f findPlaneRotation(Eigen::MatrixXd& points);
   void clip_point_clouds();
 private:
+  void (*subscriber)(const Eigen::MatrixXd points, const Eigen::MatrixXd colors);
+
   bool get_next_camera(Eigen::Matrix4d& cam, const double timestamp);
   std::string get_next_rgb(const double timestamp);
 

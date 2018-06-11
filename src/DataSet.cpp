@@ -277,12 +277,8 @@ std::string DataSet::get_next_rgb(const double timestamp)
   return "";
 }
 
-void DataROS::subscribe(void (*getData)(const Eigen::MatrixXd points, const Eigen::MatrixXd colors)) {  
+void DataSet::subscribe(void (*getData)(const Eigen::MatrixXd points, const Eigen::MatrixXd colors)) {  
   subscriber = getData;
-
-  if (subscriber != NULL && rowcntr > 0) {
-    subscriber(points, colors);
-  }
 }
 
 
