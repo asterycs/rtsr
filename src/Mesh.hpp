@@ -32,7 +32,7 @@ public:
   const Eigen::MatrixXi& faces();
   
 private:
-  JtJMatrixGrid<T> JtJ;
+  JtJMatrix<T> JtJ;
   JtzVector<T> Jtz;
   
   Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> V; // Vertices

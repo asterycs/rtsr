@@ -2,6 +2,7 @@
 #define EQHELPERS_HPP
 
 #include <Eigen/Geometry>
+#include <Eigen/Sparse>
 #include <cassert>
 #include <iostream>
 #include <array>
@@ -56,19 +57,19 @@ private:
 };
 
 template <typename T>
-class [[deprecated]] JtJMatrix // Could be made into a Eigen::SparseMatrix later
+class JtJMatrix
 {  
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   JtJMatrix() = default;
-  JtJMatrix(const int mesh_width) : mesh_width(mesh_width), mat(Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>::Zero(mesh_width*mesh_width, mesh_width*mesh_width)) {};
+  JtJMatrix(const int mesh_width) : mesh_width(mesh_width), mat(Eigen::SparseMatrix<T>(mesh_width*mesh_width, mesh_width*mesh_width)) {};
   void resize(const int mesh_width)
   {
-    mat = Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>::Zero(mesh_width*mesh_width, mesh_width*mesh_width);
+    mat = Eigen::SparseMatrix<T>(mesh_width*mesh_width, mesh_width*mesh_width);
     this->mesh_width = mesh_width;
   }
   
-  const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& get_mat() const
+  Eigen::SparseMatrix<T>& get_mat()
   {
     return this->mat;
   }
@@ -100,12 +101,15 @@ public:
 
       assert(vxidx < mesh_width-1);
         update(vidx,vidx+1,                                   a*b);
+        update(vidx+1,vidx,                                   a*b);
         
       assert(vxidx < mesh_width-1 && vyidx < mesh_width-1);
         update(vidx+1,vidx+mesh_width,                       (1-a-b)*b);
+        update(vidx+mesh_width,vidx+1,                       (1-a-b)*b);
 
       assert(vyidx < mesh_width-1);
         update(vidx,vidx+mesh_width,                         (1-a-b)*a);
+        update(vidx+mesh_width,vidx,                         (1-a-b)*a);
     }else
     // ti % 2 == 1
     // Triangle is here (*):
@@ -125,28 +129,26 @@ public:
 
       assert(vxidx > 0);
         update(vidx,vidx-1,                        a*b);
+        update(vidx-1,vidx,                        a*b);
         
       assert(vxidx > 0 && vyidx > 0);
         update(vidx-mesh_width,vidx,       (1-a-b)*a);
+        update(vidx,vidx-mesh_width,       (1-a-b)*a);
 
       assert(vyidx > 0);
         update(vidx-mesh_width,vidx-1,       (1-a-b)*b); 
+        update(vidx-1,vidx-mesh_width,       (1-a-b)*b); 
     }
   }
   
 private:
   void update(const int r, const int c, const T val)
   {
-    if (r < mat.rows() && c < mat.cols())
-      mat(r,c) += val;
-      
-    if (r != c)
-      if (c < mat.rows() && r < mat.cols())
-        mat(c,r) += val;
+    mat.coeffRef(r,c) += val;
   }
   
   int mesh_width;
-  Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> mat;
+  Eigen::SparseMatrix<T> mat;
 };
 
 template <typename T>
@@ -155,7 +157,7 @@ class JtJMatrixGrid
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   JtJMatrixGrid() = default;
-  JtJMatrixGrid(const int mesh_width) : mesh_width(mesh_width), mat(Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>::Zero((2*mesh_width-1)*(2*mesh_width-1), (2*mesh_width-1)*(2*mesh_width-1))) {};
+  JtJMatrixGrid(const int mesh_width) : mesh_width(mesh_width), mat(Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>::Zero((2*mesh_width-1), (2*mesh_width-1))) {};
   void resize(const int mesh_width)
   {     
     mat = Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>::Zero((2*mesh_width-1), (2*mesh_width-1));

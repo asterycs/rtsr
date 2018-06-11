@@ -4,7 +4,7 @@
 #include "igl/mat_min.h"
 #include "igl/barycentric_to_global.h"
 
-#include <Eigen/QR>
+#include <Eigen/SparseQR>
 
 #include <iostream>
 #include <cstdlib>
@@ -71,11 +71,11 @@ void Mesh<T>::align_to_point_cloud(const Eigen::Matrix<T, Rows, Cols>& P)
   }
       
   // Initialize Lh and rh with sensible values
-  for (int i = 0; i < (MESH_RESOLUTION-1)*(MESH_RESOLUTION-1)*2; ++i)
-    JtJ.update_triangle(i, 0.34f, 0.33f);
+  // for (int i = 0; i < (MESH_RESOLUTION-1)*(MESH_RESOLUTION-1)*2; ++i)
+  //   JtJ.update_triangle(i, 0.34f, 0.33f);
 
-  for (int i = 0; i < (MESH_RESOLUTION-1)*(MESH_RESOLUTION-1)*2; ++i)
-    Jtz.update_triangle(i, 0.34f, 0.33f, 0);
+  // for (int i = 0; i < (MESH_RESOLUTION-1)*(MESH_RESOLUTION-1)*2; ++i)
+  //   Jtz.update_triangle(i, 0.34f, 0.33f, 0);
 }
 
 template <typename T>
@@ -202,7 +202,28 @@ void Mesh<T>::set_target_point_cloud(const Eigen::Matrix<T, Rows, Cols>& P)
 template <typename T>
 void Mesh<T>::iterate()
 {
-  sor_parallel<1>(V.col(1));
+  // sor_parallel<1>(V.col(1));
+
+  Eigen::SparseMatrix<T>& JtJ_mat = JtJ.get_mat();
+  JtJ_mat.makeCompressed();
+
+  Eigen::SparseQR <Eigen::SparseMatrix<T>, Eigen::COLAMDOrdering<int> > solver;
+
+  solver.compute(JtJ_mat);
+  if (solver.info() != Eigen::Success) {
+    std::cerr << "Decomposition failed" << std::endl;
+    return;
+  }
+
+  const Eigen::Matrix<T, Eigen::Dynamic, 1>& Jtz_vec = Jtz.get_vec();
+
+  Eigen::Matrix<T, Eigen::Dynamic, 1> h = solver.solve(Jtz_vec);
+  if (solver.info() != Eigen::Success) {
+    std::cerr << "Solving failed" << std::endl;
+    return;
+  }
+
+  V.col(1) << h;
 }
 
 template <typename T>
