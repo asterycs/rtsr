@@ -307,6 +307,7 @@ void Mesh<T>::get_mesh(const unsigned int level, Eigen::Matrix<T, Eigen::Dynamic
   }
 }
 
+// Compute barycentric coordinates based on the corner points of a triangle
 template <typename T>
 void barycentric(const VecC2<T>& p, const Eigen::Matrix<T, 2, 1>& a, const Eigen::Matrix<T, 2, 1>& b, const Eigen::Matrix<T, 2, 1>& c, T &u, T &v, T &w)
 {
@@ -324,6 +325,8 @@ void barycentric(const VecC2<T>& p, const Eigen::Matrix<T, 2, 1>& a, const Eigen
     u = T(1.0) - v - w;
 }
 
+// Project all points onto the 2D plane, we only need to project onto XZ plane as the algorithm only runs on height fields
+// Also why we only need to project only when the input point cloud changes
 template <typename T>
 void Mesh<T>::project_points(const int level, Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& bc) const
 {
@@ -354,6 +357,8 @@ void Mesh<T>::project_points(const int level, Eigen::Matrix<T, Eigen::Dynamic, E
     const int r = static_cast<int>(offset(1) / dy);
     
     const int inner_size = resolution - 1;
+
+    // Indices are outside of mesh borders => a triangle cannot be hit
     if (c >= inner_size || r >= inner_size || c < 0 || r < 0)
     {
       bc.row(pi) << -1, T(0.0), T(0.0);
@@ -374,6 +379,7 @@ void Mesh<T>::project_points(const int level, Eigen::Matrix<T, Eigen::Dynamic, E
     
     int f_idx = -1;
     
+    // Find corner vertices of hit triangle
     if (ul_squared_dist <= br_squared_dist)
     {
       f_idx = 2 * c + r * 2 * inner_size;
@@ -541,12 +547,14 @@ void Mesh<T>::solve(const int iterations)
   }
 }
 
+// Basic solve without any parallelism
 template <typename T>
 void Mesh<T>::sor(const int iterations, const int level, Eigen::Ref<Eigen::Matrix<T, Eigen::Dynamic, 1>> h) const
 {
   const auto& Jtz_vec = Jtz[level];
   const auto& Jtj_mat = JtJ[level];
-    
+  
+  // For each iteration, solve system for each vertex
   for(int it = 0; it < iterations; it++)
   {
     for (int vi = 0; vi < h.rows(); vi++)
@@ -554,6 +562,13 @@ void Mesh<T>::sor(const int iterations, const int level, Eigen::Ref<Eigen::Matri
   }
 }
 
+/* 
+ Solve system for a single vertex vi in the mesh
+ vi is the vertex index,
+ JtJ is the MatrixGrid, matrix on the lhs
+ Jtz is the vector on the rhs
+ h is an array of the vertex heights
+*/
 template <typename T>
 CUDA_HOST_DEVICE inline void sor_inner(const int vi, const JtJMatrixGrid<T>& JtJ, const JtzVector<T>& Jtz_vec, T* h)
 {
@@ -571,10 +586,13 @@ CUDA_HOST_DEVICE inline void sor_inner(const int vi, const JtJMatrixGrid<T>& JtJ
 
   xn -= acc;
 
+  // Weighting of previous height vs newly solved height
+  // only use new height if w = 1.
   const T w = 1.0;
   h[vi] = (1.f-w) * h[vi] + w*xn/a;
 }
 
+// Run solve in parallel by using four-color reordering
 template <typename T>
 void Mesh<T>::sor_parallel(const int iterations, const int level, Eigen::Ref<Eigen::Matrix<T, Eigen::Dynamic, 1>> h) const
 {
@@ -618,7 +636,11 @@ void Mesh<T>::sor_parallel(const int iterations, const int level, Eigen::Ref<Eig
   }
 }
 
+// Define CUDA specific functions here
 #ifdef ENABLE_CUDA
+
+// This function solves a single iteration for a point based on the index
+// xoffset and yoffset define the offset of the four-color reordering
 __global__ void solve_kernel(const int xoffset, const int yoffset, const int mesh_width, const JtzVector<float> Jtz_vec, const JtJMatrixGrid<float> JtJ_mat, float* h) {
 	const int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	
@@ -631,17 +653,25 @@ __global__ void solve_kernel(const int xoffset, const int yoffset, const int mes
 	const int y = ((idx) / mesh_width);
 	const int vi = x + y * mesh_width;
 
+  // Make sure that indices is okay for our offsets
 	if ((x % 2 == xoffset) && (y % 2 == yoffset))
 		sor_inner(vi, JtJ_mat, Jtz_vec, h);
 }
 
+// GPU solve for non-float meshes, does not work
 template <typename T>
 void Mesh<T>::sor_gpu(const int, const int, Eigen::Ref<Eigen::Matrix<T, Eigen::Dynamic, 1>>)
 {
     assert(false && "GPU solver works only with float meshes");
 }
 
-template <> // Works only for float meshes
+/*
+ Function for solving the system on the GPU using CUDA
+ Similar to the parallel solve this method uses four-color reordering
+ and therefore there are four solve_kernel calls,
+ GPU solver also only works with float meshes
+*/ 
+template <>
 void Mesh<float>::sor_gpu(const int iterations, const int level, Eigen::Ref<Eigen::Matrix<float, Eigen::Dynamic, 1>> h)
 {
     const JtJMatrixGrid<float> JtJ_mat = JtJ[level];

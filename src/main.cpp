@@ -29,6 +29,7 @@ Mesh<float> mesh;
 Eigen::MatrixXd P, P2, current_target, C;
 DataSet *ds;
 
+// Splits example point cloud into two point clouds
 template <typename T>
 void split_point_cloud(const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& P, Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& P1, Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& P2, const Eigen::Matrix<int, Eigen::Dynamic, 1>& id1, Eigen::Matrix<int, Eigen::Dynamic, 1>& id2)
 {
@@ -109,6 +110,7 @@ void reload_viewer_data(igl::opengl::glfw::Viewer &viewer, const Eigen::MatrixXd
 
 bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int /*modifier*/)
 {
+  // Solve one iteration when 1 is pressed
   if (key == '1')
   {
     mesh.solve(1);
@@ -126,6 +128,7 @@ bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int
     reload_viewer_data(viewer, current_target, C, viewer_mesh_level, showMeshColor);
   }
   
+  // Move to next point cloud when 2 is pressed
   if (key == '2')
   {
     
@@ -139,6 +142,7 @@ bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int
       mesh.set_target_point_cloud(current_target.cast<float>().eval(), C.cast<float>().eval());
     }else
     {
+      // If example point cloud switch to second part of it
       current_target = P2;
       mesh.set_target_point_cloud(current_target.cast<float>().eval());
     }
@@ -161,12 +165,14 @@ bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int
     
   }*/
   
+  // Increase displayed mesh resolution
   if (key == '0')
   {
     viewer_mesh_level = viewer_mesh_level >= MESH_LEVELS - 1 ? viewer_mesh_level : viewer_mesh_level + 1;
     reload_viewer_data(viewer, current_target, C, viewer_mesh_level, showMeshColor);
   }
-    
+  
+  // Reduce displayed mesh resolution
   if (key == '-')
   {
     viewer_mesh_level = viewer_mesh_level < 1 ? viewer_mesh_level : viewer_mesh_level - 1;
@@ -189,6 +195,7 @@ int main(int argc, char* argv[]) {
       std::cout << "Usage: $0" << std::endl;
       return EXIT_SUCCESS;
     } else if (argc > 1) {
+      // Load dataset
       std::string folder(argv[1]);
       ds = new DataSet(folder);
       Eigen::Matrix4d t_camera;
@@ -199,6 +206,7 @@ int main(int argc, char* argv[]) {
       mesh.set_target_point_cloud(current_target.cast<float>().eval(), C.cast<float>().eval());
       showMeshColor = true;
     } else {
+      // Create example point cloud
       Eigen::VectorXi id1, id2;
       generate_example_point_cloud(P, id1, id2);
       split_point_cloud(P, current_target, P2, id1, id2);
