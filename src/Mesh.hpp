@@ -27,12 +27,13 @@ public:
   template <int Rows, int Cols>
   void set_target_point_cloud(const Eigen::Matrix<T, Rows, Cols>& P);
   void iterate();
+  // void qr_solve()
   
   const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>& vertices();
   const Eigen::MatrixXi& faces();
   
 private:
-  JtJMatrix<T> JtJ;
+  JtJMatrixGrid<T> JtJ;
   JtzVector<T> Jtz;
   
   Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> V; // Vertices

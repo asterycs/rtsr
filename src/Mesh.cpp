@@ -69,13 +69,22 @@ void Mesh<T>::align_to_point_cloud(const Eigen::Matrix<T, Rows, Cols>& P)
       F.row(x_step*2 + y_step*(MESH_RESOLUTION-1)*2 + 1) << x_step+1+(y_step+1)*MESH_RESOLUTION,x_step+ (y_step+1)*MESH_RESOLUTION,x_step+1+y_step*MESH_RESOLUTION;
     }
   }
-      
-  // Initialize Lh and rh with sensible values
-  // for (int i = 0; i < (MESH_RESOLUTION-1)*(MESH_RESOLUTION-1)*2; ++i)
-  //   JtJ.update_triangle(i, 0.34f, 0.33f);
+  // Set constraints for each vertex:
+  for (int i = 0; i < (MESH_RESOLUTION-1)*(MESH_RESOLUTION-1)*2; ++i)
+  {
+    if (i % 2 == 0) {
+      // Inside the grid only set 1 constraint per upper left triangle
+      JtJ.update_triangle(i, 1.f, 0.f);
+    } else if ((i + 1) % ((MESH_RESOLUTION-1)*2) == 0 || i >= (MESH_RESOLUTION-2)*(MESH_RESOLUTION-1)*2) {
+      // last column or last row (set point for bottom right triangles too)
+      JtJ.update_triangle(i, 1.f, 0.f);
+    }
+  }
 
-  // for (int i = 0; i < (MESH_RESOLUTION-1)*(MESH_RESOLUTION-1)*2; ++i)
-  //   Jtz.update_triangle(i, 0.34f, 0.33f, 0);
+  // two points on grid are not getting reached that way:
+  JtJ.update_triangle((MESH_RESOLUTION-2)*2, 0.f, 1.f); // upper right
+  JtJ.update_triangle((MESH_RESOLUTION-2)*(MESH_RESOLUTION-1)*2, 0.f, 0.f); // bottom left
+
 }
 
 template <typename T>
@@ -202,29 +211,33 @@ void Mesh<T>::set_target_point_cloud(const Eigen::Matrix<T, Rows, Cols>& P)
 template <typename T>
 void Mesh<T>::iterate()
 {
-  // sor_parallel<1>(V.col(1));
-
-  Eigen::SparseMatrix<T>& JtJ_mat = JtJ.get_mat();
-  JtJ_mat.makeCompressed();
-
-  Eigen::SparseQR <Eigen::SparseMatrix<T>, Eigen::COLAMDOrdering<int> > solver;
-
-  solver.compute(JtJ_mat);
-  if (solver.info() != Eigen::Success) {
-    std::cerr << "Decomposition failed" << std::endl;
-    return;
-  }
-
-  const Eigen::Matrix<T, Eigen::Dynamic, 1>& Jtz_vec = Jtz.get_vec();
-
-  Eigen::Matrix<T, Eigen::Dynamic, 1> h = solver.solve(Jtz_vec);
-  if (solver.info() != Eigen::Success) {
-    std::cerr << "Solving failed" << std::endl;
-    return;
-  }
-
-  V.col(1) << h;
+  sor_parallel<1>(V.col(1));
 }
+
+// template <typename T>
+// void Mesh<T>::qr_solve()
+// {
+//   Eigen::SparseMatrix<T>& JtJ_mat = JtJ.get_mat();
+//   JtJ_mat.makeCompressed();
+
+//   Eigen::SparseQR <Eigen::SparseMatrix<T>, Eigen::COLAMDOrdering<int> > solver;
+
+//   solver.compute(JtJ_mat);
+//   if (solver.info() != Eigen::Success) {
+//     std::cerr << "Decomposition failed" << std::endl;
+//     return;
+//   }
+
+//   const Eigen::Matrix<T, Eigen::Dynamic, 1>& Jtz_vec = Jtz.get_vec();
+
+//   Eigen::Matrix<T, Eigen::Dynamic, 1> h = solver.solve(Jtz_vec);
+//   if (solver.info() != Eigen::Success) {
+//     std::cerr << "Solving failed" << std::endl;
+//     return;
+//   }
+
+//   V.col(1) << h;
+// }
 
 template <typename T>
 template <int Iterations>
