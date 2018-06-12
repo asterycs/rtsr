@@ -1,11 +1,3 @@
-
-// The Eigen version included by igl does not fully support CUDA 9
-#if __CUDACC_VER_MAJOR__ >= 9
-#undef __CUDACC_VER__
-#define __CUDACC_VER__ \
-  ((__CUDACC_VER_MAJOR__ * 10000) + (__CUDACC_VER_MINOR__ * 100))
-#endif
-
 #include "igl/opengl/glfw/Viewer.h"
 #include "igl/readOFF.h"
 #include "igl/fit_plane.h"
@@ -84,7 +76,7 @@ void reload_viewer_data(igl::opengl::glfw::Viewer &viewer, const Eigen::MatrixXd
 {   
     viewer.data().clear();
     viewer.data().point_size = 5;
-    viewer.data().add_points(pc, C);
+    //viewer.data().add_points(pc, C);
     Eigen::MatrixXf vertices;
     Eigen::MatrixXi faces;
     ColorData colorData;
@@ -95,6 +87,8 @@ void reload_viewer_data(igl::opengl::glfw::Viewer &viewer, const Eigen::MatrixXd
     {     
       viewer.data().set_texture(colorData.texture.red, colorData.texture.green, colorData.texture.blue);
       viewer.data().set_uv(colorData.UV);
+      viewer.data().set_colors(Eigen::RowVector3d(1.f, 1.f, 1.f)); // https://github.com/libigl/libigl/issues/570
+      //viewer.core.lighting_factor = 0.0;
       viewer.data().show_texture = true;
     }else
     {
@@ -132,34 +126,44 @@ bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int
     C.resize(1, 3);
     C << 0.f,0.7f,0.7f;
     
-    if (ds) {
-      Eigen::Matrix4d t_camera;
-      ds->get_next_point_cloud(current_target, C, t_camera);
-      
-      mesh.set_target_point_cloud(current_target.cast<float>().eval(), C.cast<float>().eval());
-    }else
-    {
-      current_target = P2;
-      mesh.set_target_point_cloud(current_target.cast<float>().eval());
-    }
-  
+      if (ds) {
+        Eigen::Matrix4d t_camera;
+        ds->get_next_point_cloud(current_target, C, t_camera);
+        
+        mesh.set_target_point_cloud(current_target.cast<float>().eval(), C.cast<float>().eval());
+      }else
+      {
+        current_target = P2;
+        mesh.set_target_point_cloud(current_target.cast<float>().eval());
+      }
+    
       reload_viewer_data(viewer, current_target, C, viewer_mesh_level, showMeshColor);
     }
   
- /* if (key == '3' && ds)
+  if (key == '3' && ds)
   {
-    Eigen::Matrix4d t_camera;
-    for (int i = 0; i < 5; ++i)
+    C.resize(1, 3);
+    C << 0.f,0.7f,0.7f;
+    
+    for (int i = 0; i < 10; ++i)
     {
-      if (!ds->get_next_point_cloud(current_target, C, t_camera))
-        break;
+      if (ds) {
+        Eigen::Matrix4d t_camera;
+        ds->get_next_point_cloud(current_target, C, t_camera);
         
-      mesh.set_target_point_cloud(current_target);
+        mesh.set_target_point_cloud(current_target.cast<float>().eval(), C.cast<float>().eval());
+      }else
+      {
+        current_target = P2;
+        mesh.set_target_point_cloud(current_target.cast<float>().eval());
+      }
+      
       mesh.solve(20);
     }
-    reload_viewer_data(viewer, current_target, C, viewer_mesh_level);
     
-  }*/
+      reload_viewer_data(viewer, current_target, C, viewer_mesh_level, showMeshColor);
+
+  }
   
   if (key == '0')
   {

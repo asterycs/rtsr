@@ -13,7 +13,7 @@
 #define MESH_RESOLUTION 5
 // Scale factor of 1 makes the mesh the same size as the bounding box of the
 // point cloud given to align_to_point_cloud
-#define MESH_SCALING_FACTOR 2.33
+#define MESH_SCALING_FACTOR 1.55
 // Multiresolution levels. 1 is a single resolution mesh
 #define MESH_LEVELS 7
 #define TEXTURE_RESOLUTION 300

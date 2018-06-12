@@ -50,6 +50,8 @@ for f=1:length(error_files)
     grid on;
     xlabel('Iteration (1)','FontSize',20);
     ylabel('Residual value (1)','FontSize',20);
+    xt = get(gca, 'XTick');
+    set(gca, 'FontSize', 18)
     %title(titles{f});
     saveas(fig, image_filenames{f},'epsc');
 end

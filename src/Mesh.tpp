@@ -238,25 +238,13 @@ void Mesh<T>::align_to_point_cloud(const Eigen::MatrixBase<Derived>& P)
         F[li].row(x_step*2 + y_step*(resolution-1)*2 + 1) << x_step+1+(y_step+1)*resolution,x_step+ (y_step+1)*resolution,x_step+1+y_step*resolution;
       }
     }
-     
-   if (li == 0)
-   {
-      // Initialize Lh and rh with sensible values
-      for (int i = 0; i < (resolution-1)*(resolution-1)*2; ++i)
-        JtJ[li].update_triangle(i, 0.34f, 0.33f);
+        
+    // Initialize Lh and rh with sensible values
+    for (int i = 0; i < (resolution-1)*(resolution-1)*2; ++i)
+      JtJ[li].update_triangle(i, 0.33f, 0.34f);
 
-      for (int i = 0; i < (resolution-1)*(resolution-1)*2; ++i)
-        Jtz[li].update_triangle(i, 0.34f, 0.33f, 0.f);
-   }else
-   {
-     
-     // Try three constraints per triangle
-      for (int i = 0; i < (resolution-1)*(resolution-1)*2; ++i)
-        JtJ[li].update_triangle(i, 0.34f, 0.33f);
-
-      for (int i = 0; i < (resolution-1)*(resolution-1)*2; ++i)
-        Jtz[li].update_triangle(i, 0.34f, 0.33f, T(0.0));
-   }
+    for (int i = 0; i < (resolution-1)*(resolution-1)*2; ++i)
+      Jtz[li].update_triangle(i, 0.34f, 0.33f, 0.f);
   }
 }
 
