@@ -16,6 +16,7 @@
 #include <sstream>
 
 bool showMeshColor = false;
+bool showPoints = true;
 int viewer_mesh_level = 0;
 Mesh<float> mesh;
 Eigen::MatrixXd P, P2, current_target, C;
@@ -72,11 +73,16 @@ void generate_example_point_cloud(Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynami
   
 }
 
-void reload_viewer_data(igl::opengl::glfw::Viewer &viewer, const Eigen::MatrixXd pc, const Eigen::MatrixXd C, const unsigned int mesh_level, const bool color)
+void reload_viewer_data(igl::opengl::glfw::Viewer &viewer, const Eigen::MatrixXd pc, const Eigen::MatrixXd C, const unsigned int mesh_level, const bool color, const bool showPoints)
 {   
     viewer.data().clear();
-    viewer.data().point_size = 5;
-    //viewer.data().add_points(pc, C);
+    
+    if (showPoints)
+    {
+      viewer.data().point_size = 5;
+      viewer.data().add_points(pc, C);
+    }
+    
     Eigen::MatrixXf vertices;
     Eigen::MatrixXi faces;
     ColorData colorData;
@@ -88,13 +94,15 @@ void reload_viewer_data(igl::opengl::glfw::Viewer &viewer, const Eigen::MatrixXd
       viewer.data().set_texture(colorData.texture.red, colorData.texture.green, colorData.texture.blue);
       viewer.data().set_uv(colorData.UV);
       viewer.data().set_colors(Eigen::RowVector3d(1.f, 1.f, 1.f)); // https://github.com/libigl/libigl/issues/570
-      //viewer.core.lighting_factor = 0.0;
+      viewer.core.lighting_factor = 0.5;
       viewer.data().show_texture = true;
+      viewer.data().show_lines = false;
     }else
     {
       mesh.get_mesh(mesh_level, vertices, faces);
       viewer.data().set_mesh(vertices.cast<double>(), faces);
       viewer.data().show_texture = false;
+      viewer.data().show_lines = true;
     }
 
     viewer.data().compute_normals();
@@ -114,10 +122,16 @@ bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int
     viewer.data().invert_normals = true;
   }
   
+  if (static_cast<int>(key) == 80)
+  {
+    showPoints = !showPoints;
+    reload_viewer_data(viewer, current_target, C, viewer_mesh_level, showMeshColor, showPoints);
+  }
+  
   if (static_cast<int>(key) == 67)
   {
     showMeshColor = !showMeshColor;
-    reload_viewer_data(viewer, current_target, C, viewer_mesh_level, showMeshColor);
+    reload_viewer_data(viewer, current_target, C, viewer_mesh_level, showMeshColor, showPoints);
   }
   
   if (key == '2')
@@ -137,7 +151,7 @@ bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int
         mesh.set_target_point_cloud(current_target.cast<float>().eval());
       }
     
-      reload_viewer_data(viewer, current_target, C, viewer_mesh_level, showMeshColor);
+      reload_viewer_data(viewer, current_target, C, viewer_mesh_level, showMeshColor, showPoints);
     }
   
   if (key == '3' && ds)
@@ -161,20 +175,20 @@ bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int
       mesh.solve(20);
     }
     
-      reload_viewer_data(viewer, current_target, C, viewer_mesh_level, showMeshColor);
+      reload_viewer_data(viewer, current_target, C, viewer_mesh_level, showMeshColor, showPoints);
 
   }
   
   if (key == '0')
   {
     viewer_mesh_level = viewer_mesh_level >= MESH_LEVELS - 1 ? viewer_mesh_level : viewer_mesh_level + 1;
-    reload_viewer_data(viewer, current_target, C, viewer_mesh_level, showMeshColor);
+    reload_viewer_data(viewer, current_target, C, viewer_mesh_level, showMeshColor, showPoints);
   }
     
   if (key == '-')
   {
     viewer_mesh_level = viewer_mesh_level < 1 ? viewer_mesh_level : viewer_mesh_level - 1;
-    reload_viewer_data(viewer, current_target, C, viewer_mesh_level, showMeshColor); 
+    reload_viewer_data(viewer, current_target, C, viewer_mesh_level, showMeshColor, showPoints); 
   }
   
   
@@ -214,18 +228,22 @@ int main(int argc, char* argv[]) {
     igl::opengl::glfw::Viewer viewer;    
     viewer.callback_key_down = callback_key_down;
     
-    reload_viewer_data(viewer, current_target, C, viewer_mesh_level, showMeshColor);
+    reload_viewer_data(viewer, current_target, C, viewer_mesh_level, showMeshColor, showPoints);
     viewer.core.align_camera_center(current_target);
     
     igl::opengl::glfw::imgui::ImGuiMenu menu;
     viewer.plugins.push_back(&menu);
+    
+    viewer.core.background_color = Eigen::Vector4f(1.0f, 1.0f, 1.0f, 1.0f);
 
     menu.callback_draw_viewer_menu = [&]()
     {
       ImGui::Text("Iterate: \"1\"");
       ImGui::Text("Next point cloud: \"2\"");
+      ImGui::Text("Lots of iterations and point clouds (dataset only): \"3\"");
       ImGui::Text("Change mesh level (%d): 0/+", viewer_mesh_level);
       ImGui::Text("Toggle coloring (%s): C", showMeshColor ? "on" : "off");
+      ImGui::Text("Toggle point cloud (%s): P", showPoints ? "on" : "off");
     };
     
     viewer.launch();

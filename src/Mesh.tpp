@@ -241,7 +241,11 @@ void Mesh<T>::align_to_point_cloud(const Eigen::MatrixBase<Derived>& P)
         
     // Initialize Lh and rh with sensible values
     for (int i = 0; i < (resolution-1)*(resolution-1)*2; ++i)
-      JtJ[li].update_triangle(i, 0.33f, 0.34f);
+    {
+      JtJ[li].update_triangle(i, 1.f, 0.f);
+      JtJ[li].update_triangle(i, 0.f, 1.f);
+      JtJ[li].update_triangle(i, 0.f, 0.f);
+    }
 
     for (int i = 0; i < (resolution-1)*(resolution-1)*2; ++i)
       Jtz[li].update_triangle(i, 0.34f, 0.33f, 0.f);
@@ -440,9 +444,9 @@ void Mesh<T>::set_target_point_cloud(const Eigen::Matrix<T, Eigen::Dynamic, Eige
     const int count = color_counter(xi, zi);
     
     const double multipl = count == 0 ? 1.0 : 0.25; // More weight to the new color
-    texture.red(xi, zi)   = static_cast<unsigned char>((texture.red(xi, zi)   * (1.0-multipl) + (1.5*C(i, 0)*255)) * multipl);
-    texture.green(xi, zi) = static_cast<unsigned char>((texture.green(xi, zi) * (1.0-multipl) + (1.5*C(i, 1)*255)) * multipl);
-    texture.blue(xi, zi)  = static_cast<unsigned char>((texture.blue(xi, zi)  * (1.0-multipl) + (1.5*C(i, 2)*255)) * multipl);
+    texture.red(xi, zi)   = static_cast<unsigned char>((texture.red(xi, zi)   * (1.0-multipl) + (50+C(i, 0)*255)) * multipl); // Increase brightness a little on the dark scene
+    texture.green(xi, zi) = static_cast<unsigned char>((texture.green(xi, zi) * (1.0-multipl) + (50+C(i, 1)*255)) * multipl);
+    texture.blue(xi, zi)  = static_cast<unsigned char>((texture.blue(xi, zi)  * (1.0-multipl) + (50+C(i, 2)*255)) * multipl);
     ++color_counter(xi, zi);
   }
 }
