@@ -448,11 +448,10 @@ void Mesh<T>::set_target_point_cloud(const Eigen::Matrix<T, Eigen::Dynamic, Eige
       continue;
 
     const int count = color_counter(xi, zi);
-    
-    const double multipl = count == 0 ? 1.0 : 0.25; // More weight to the new color
-    texture.red(xi, zi)   = static_cast<unsigned char>((texture.red(xi, zi)   * (1.0-multipl) + (50+C(i, 0)*255)) * multipl); // Increase brightness a little on the dark scene
-    texture.green(xi, zi) = static_cast<unsigned char>((texture.green(xi, zi) * (1.0-multipl) + (50+C(i, 1)*255)) * multipl);
-    texture.blue(xi, zi)  = static_cast<unsigned char>((texture.blue(xi, zi)  * (1.0-multipl) + (50+C(i, 2)*255)) * multipl);
+        
+    texture.red(xi, zi)   = static_cast<unsigned char>((texture.red(xi, zi)  * count + (C(i,0)*255)) / (count + 1));
+    texture.green(xi, zi) = static_cast<unsigned char>((texture.green(xi, zi) * count + (C(i,1)*255)) / (count + 1));
+    texture.blue(xi, zi)  = static_cast<unsigned char>((texture.blue(xi, zi)  * count + (C(i,2)*255)) / (count + 1));
     ++color_counter(xi, zi);
   }
 }
