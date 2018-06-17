@@ -33,6 +33,18 @@ make
 
 You can activate CUDA support by specifying -DENABLE_CUDA=ON when running CMake. Note that there is a huge performance impact for compiling in debug mode.  
 
+# Run
+
+To read a dataset
+```
+./bin/rtsr ../path_to_dataset/   
+```
+
+or use the generated point cloud
+```
+./bin/rtsr
+```
+
 
 # Layout
 
