@@ -246,9 +246,8 @@ int main(int argc, char* argv[]) {
     { 
       if (!ds || !viewer.core.is_animating) return false;
 
-      Eigen::MatrixXd points, colors;
-      Eigen::Matrix4d camera;
-      bool cont = ds->get_next_point_cloud(points, colors, camera);
+      Eigen::Matrix4d t_camera;
+      bool cont = ds->get_next_point_cloud(P, C, t_camera);
       if (!cont)
       {
         // end of image sequence 
@@ -256,7 +255,7 @@ int main(int argc, char* argv[]) {
         return false;
       }
       
-      mesh.set_target_point_cloud(points.cast<float>().eval(), colors.cast<float>().eval());
+      mesh.set_target_point_cloud(P.cast<float>().eval(), C.cast<float>().eval());
       mesh.solve(1);
       reload_viewer_data(viewer, P, C, viewer_mesh_level, showMeshColor, showPoints);
       
