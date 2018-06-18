@@ -52,4 +52,8 @@ src contains all the relevant source code.
 DataSet.hpp/cpp contains a class for reading the kinect data  
 EqHelpers.hpp/tpp contain helper classes for managing the linear system  
 Mesh.hpp/tpp contains the mesh abstraction  
-Util.hpp/cpp contains CUDA related error checking  
+Util.hpp/cpp contains CUDA related error checking
+
+# Sample Video
+
+[![3D surface reconstruction](https://img.youtube.com/vi/OR6tDCjICtk/0.jpg)](https://www.youtube.com/watch?v=OR6tDCjICtk)
