@@ -54,6 +54,9 @@ EqHelpers.hpp/tpp contain helper classes for managing the linear system
 Mesh.hpp/tpp contains the mesh abstraction  
 Util.hpp/cpp contains CUDA related error checking
 
-# Sample Video
+# Demo video
 
-[![3D surface reconstruction](https://img.youtube.com/vi/OR6tDCjICtk/0.jpg)](https://www.youtube.com/watch?v=OR6tDCjICtk)
+3D surface reconstruction from a Kinect image sequence.
+
+<a href="https://www.youtube.com/embed/OR6tDCjICtk" target="_blank"><img src="http://img.youtube.com/vi/OR6tDCjICtk/0.jpg" 
+alt="3D surface reconstruction" width="240" height="180" border="10" /></a>
