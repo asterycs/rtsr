@@ -177,6 +177,24 @@ void upsample(const unsigned int levels, const Eigen::Matrix<T, Eigen::Dynamic, 
     }
 }
 
+// Compute barycentric coordinates based on the corner points of a triangle
+template <typename T>
+void barycentric(const VecC2<T>& p, const Eigen::Matrix<T, 2, 1>& a, const Eigen::Matrix<T, 2, 1>& b, const Eigen::Matrix<T, 2, 1>& c, T &u, T &v, T &w)
+{
+    Eigen::Matrix<T, 2, 1> v0 = b - a,
+                                           v1 = c - a,
+                                           v2 = p - a;
+    T a00 = v0.dot(v0);
+    T a01 = v0.dot(v1);
+    T a11 = v1.dot(v1);
+    T a20 = v2.dot(v0);
+    T a21 = v2.dot(v1);
+    T den = 1 / (a00 * a11 - a01 * a01);
+    v =  (a11 * a20 - a01 * a21) * den;
+    w = (a00 * a21 - a01 * a20) * den;
+    u = T(1.0) - v - w;
+}
+
 template <typename T>
 template <typename Derived>
 void Mesh<T>::align_to_point_cloud(const Eigen::MatrixBase<Derived>& P)
@@ -189,6 +207,9 @@ void Mesh<T>::align_to_point_cloud(const Eigen::MatrixBase<Derived>& P)
   Jtz.resize(MESH_LEVELS);
   V.resize(MESH_LEVELS);
   F.resize(MESH_LEVELS);
+
+  const int max_resolution = subdivided_side_length(MESH_LEVELS - 1, MESH_RESOLUTION);
+  const Eigen::Matrix<T, 2, 1> a(0.f, 0.f), b(1.f, 0.f), c(0.f, 1.f), d(1.f, 1.f);
 
   for (int li = 0; li < MESH_LEVELS; ++li)
   {  
@@ -238,17 +259,66 @@ void Mesh<T>::align_to_point_cloud(const Eigen::MatrixBase<Derived>& P)
         F[li].row(x_step*2 + y_step*(resolution-1)*2 + 1) << x_step+1+(y_step+1)*resolution,x_step+ (y_step+1)*resolution,x_step+1+y_step*resolution;
       }
     }
-        
-    // Initialize Lh and rh with sensible values
-    for (int i = 0; i < (resolution-1)*(resolution-1)*2; ++i)
-    {
-      JtJ[li].update_triangle(i, 1.f, 0.f);
-      JtJ[li].update_triangle(i, 0.f, 1.f);
-      JtJ[li].update_triangle(i, 0.f, 0.f);
-    }
+  
+    const int factor = static_cast<int>(std::pow(2, MESH_LEVELS - li - 1));
 
-    for (int i = 0; i < (resolution-1)*(resolution-1)*2; ++i)
-      Jtz[li].update_triangle(i, 0.34f, 0.33f, 0.f);
+    // Place constraints for every vertex on the highest resolution grid for all levels
+    for (int i = 0; i < (max_resolution-1) * (max_resolution-1); ++i)
+    {
+
+      const int x = i % (max_resolution-1);
+      const int y = i / (max_resolution-1);
+
+      const int gx = x / factor;
+      const int gy = y / factor;
+
+      const int t = (gx + (resolution-1) * gy) * 2;
+
+      // inside current resolution rect
+      const T tx(static_cast<T>(x % factor) / static_cast<T>(factor));
+      const T ty(static_cast<T>(y % factor) / static_cast<T>(factor));
+
+      T u,v,w;
+      const VecC2<T> p(tx, ty);
+
+      if (tx + ty > T(1.))
+      {
+        // lower right triangle
+        barycentric(p, d, c, b, u, v, w);
+        JtJ[li].update_triangle(t+1, u, v);
+        Jtz[li].update_triangle(t+1, u, v, 0.f);
+      }
+      else
+      {
+        // upper left triangle
+        barycentric(p, a, b, c, u, v, w);
+        JtJ[li].update_triangle(t, u, v);
+        Jtz[li].update_triangle(t, u, v, 0.f);
+      }
+
+      // Special cases > last cell, last column, last row
+      if (x + 1 >= max_resolution - 1 && y + 1 >= max_resolution - 1)
+      {
+        const VecC2<T> p2(T(1.), T(1.));
+        barycentric(p2, d, c, b, u, v, w);
+        JtJ[li].update_triangle(t+1, u, v);
+        Jtz[li].update_triangle(t+1, u, v, 0.f);
+      }
+      if (x + 1 >= max_resolution - 1)
+      {
+        const VecC2<T> p2(T(1.), ty);
+        barycentric(p2, d, c, b, u, v, w);
+        JtJ[li].update_triangle(t+1, u, v);
+        Jtz[li].update_triangle(t+1, u, v, 0.f);
+      }
+      if (y + 1 >= max_resolution - 1)
+      {
+        const VecC2<T> p2(tx, T(1.));
+        barycentric(p2, d, c, b, u, v, w);
+        JtJ[li].update_triangle(t+1, u, v);
+        Jtz[li].update_triangle(t+1, u, v, 0.f);
+      }
+    }
   }
 }
 
@@ -297,24 +367,6 @@ void Mesh<T>::get_mesh(const unsigned int level, Eigen::Matrix<T, Eigen::Dynamic
        V_out.col(1) += V_upsampled.col(1);
     }
   }
-}
-
-// Compute barycentric coordinates based on the corner points of a triangle
-template <typename T>
-void barycentric(const VecC2<T>& p, const Eigen::Matrix<T, 2, 1>& a, const Eigen::Matrix<T, 2, 1>& b, const Eigen::Matrix<T, 2, 1>& c, T &u, T &v, T &w)
-{
-    Eigen::Matrix<T, 2, 1> v0 = b - a,
-                                           v1 = c - a,
-                                           v2 = p - a;
-    T a00 = v0.dot(v0);
-    T a01 = v0.dot(v1);
-    T a11 = v1.dot(v1);
-    T a20 = v2.dot(v0);
-    T a21 = v2.dot(v1);
-    T den = 1 / (a00 * a11 - a01 * a01);
-    v =  (a11 * a20 - a01 * a21) * den;
-    w = (a00 * a21 - a01 * a20) * den;
-    u = T(1.0) - v - w;
 }
 
 // Project all points onto the 2D plane, we only need to project onto XZ plane as the algorithm only runs on height fields
