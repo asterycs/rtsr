@@ -42,7 +42,6 @@ std::string get_file_name(const std::string& s)
   return("");
 }
 
- 
 std::vector<double>::const_iterator closest(std::vector<double> const& vec, double value)
 {
   auto const it = std::lower_bound(vec.begin(), vec.end(), value);
@@ -50,6 +49,7 @@ std::vector<double>::const_iterator closest(std::vector<double> const& vec, doub
   return it;
 }
 
+// Calculate 3d point from pixel position and distance from camera using camera intrinsics
 void pixel_to_camera_coord(const int x, const int y, const int z, Eigen::Vector3d& camCoord)
 { 
   const double fx = 517.3; // Focal length
@@ -70,6 +70,7 @@ std::string trim_left(const std::string& str, const char* t = " \t\n\r\f\v")
   res.erase(0, res.find_first_not_of(t));
   return res;
 }
+
 
 DataSet::DataSet(const std::string& folder) : next_file_idx(0), folder_path(folder), rgb_ref_file_name(folder+"rgb.txt")
 {
@@ -95,7 +96,6 @@ DataSet::DataSet(const std::string& folder) : next_file_idx(0), folder_path(fold
   std::sort(depth_files.begin(), depth_files.end());
 
   rOffset = Eigen::Matrix4d::Identity();
-  clip = false;
   operational = true;
 
   Eigen::MatrixXd P, C;
@@ -106,7 +106,6 @@ DataSet::DataSet(const std::string& folder) : next_file_idx(0), folder_path(fold
   Eigen::Affine3f r = findPlaneRotation(P);
   rOffset = r.matrix().cast<double>();
 #endif
-  clip = true;
 }
 
 DataSet::~DataSet()
@@ -114,12 +113,13 @@ DataSet::~DataSet()
 
 }
 
-
+// get point cloud from next depth image
 bool DataSet::get_next_point_cloud(Eigen::MatrixXd& points, Eigen::MatrixXd &colors, Eigen::Matrix4d& t_camera)
 {
   if (!operational)
     return false;
-    
+  
+  // Use the next depth image to load corresponding camera pose & rgb image data
   std::string time_stamp = strip_file_suffix(get_file_name(depth_files[next_file_idx]));
   double time_stamp_d = std::stod(time_stamp);
  
@@ -155,15 +155,15 @@ bool DataSet::get_next_point_cloud(Eigen::MatrixXd& points, Eigen::MatrixXd &col
         //if (x % 32 != 0 || y % 32 != 0)
         //  continue;
           
+        // Transform depth image into point cloud using camera intrinsics
         Eigen::Vector3d camCoord;
         pixel_to_camera_coord(x, y, png[(x+y*width)/bpp], camCoord);
         
+        // Transform points into world coordinates frame using camera pose
         Eigen::Vector4d camera_point; camera_point << camCoord,1.0;
         camera_point = t_camera * camera_point;
         Eigen::RowVector4d world_point = camera_point.transpose();
         unsigned char* color = rgb + (x+y*rgb_width)*rgb_bpp;
-        
-        // if (clip && world_point[1] < 0.05) continue; // so not the shadowy side?
 
 #pragma omp critical
         {
@@ -189,10 +189,6 @@ bool DataSet::get_next_point_cloud(Eigen::MatrixXd& points, Eigen::MatrixXd &col
   return true;
 }
 
-void DataSet::clip_point_clouds() {
-  clip = !clip;
-}
-
 struct CameraEntry
 {
   double time, tx, ty, tz, qi, qj, qk, ql;
@@ -200,6 +196,7 @@ struct CameraEntry
   CameraEntry() : time(0), tx(0), ty(0), tz(0), qi(0), qj(0), qk(0), ql(0) {};
 };
 
+// Get camera transformation closest to timestamp
 bool DataSet::get_next_camera(Eigen::Matrix4d& cam, const double timestamp)
 {
   if (!operational)
@@ -252,6 +249,7 @@ bool DataSet::get_next_camera(Eigen::Matrix4d& cam, const double timestamp)
   return true;
 }
 
+// get rgb file name closest to a certain timestamp
 std::string DataSet::get_next_rgb(const double timestamp)
 {
   std::fstream rgb_ref_file(rgb_ref_file_name);
@@ -265,16 +263,10 @@ std::string DataSet::get_next_rgb(const double timestamp)
       continue;
     
     std::stringstream ss(line);
-    std::vector<std::string> result;
-    while( ss.good() )
-    {
-        std::string substr;
-        std::getline( ss, substr, ' ' );
-        result.push_back( substr );
-    }
     
-    double t(atof(result[0].c_str()));
-    std::string filename(result[1]);
+    double t;
+    std::string filename;
+    ss >> t >> filename;
     
     double currentDT = std::abs(t - timestamp);
     if (currentDT > previousDT) // Previous was closer
@@ -290,8 +282,8 @@ std::string DataSet::get_next_rgb(const double timestamp)
 
 
 #ifdef PCL_AVAILABLE
+// Find the plane rotation using RANSAC
 Eigen::Affine3f DataSet::findPlaneRotation(Eigen::MatrixXd& points) {
-  // Use Ransac
 
   const long int size = points.rows();
 
@@ -326,11 +318,6 @@ Eigen::Affine3f DataSet::findPlaneRotation(Eigen::MatrixXd& points) {
     return Eigen::Affine3f::Identity();
   }
 
-  // std::cout << "Model coefficients: " << coefficients->values[0] << " " 
-  //                                     << coefficients->values[1] << " "
-  //                                     << coefficients->values[2] << " " 
-  //                                     << coefficients->values[3] << std::endl;
-
   Eigen::Matrix<float, 1, 3> floor_plane_normal_vector, xy_plane_normal_vector;
 
   floor_plane_normal_vector[0] = coefficients->values[0];
@@ -345,9 +332,9 @@ Eigen::Affine3f DataSet::findPlaneRotation(Eigen::MatrixXd& points) {
 
   Eigen::Vector3f mu (0.0, 0.0, 0.0);
 
-  for (uint i=0;i < inliers->indices.size();i++){
-
-    // Get Point
+  // Get all inlier points to calculate mean position of plane
+  for (uint i=0;i < inliers->indices.size();i++)
+  {
     pcl::PointXYZ pt = cloud->points[inliers->indices[i]];
 
     mu[0] += pt.x;
@@ -357,12 +344,15 @@ Eigen::Affine3f DataSet::findPlaneRotation(Eigen::MatrixXd& points) {
 
   mu /= (float)inliers->indices.size ();
 
+  // Rotation axis is orthogonal to plane normal and target vector
   Eigen::Vector3f rotation_vector = xy_plane_normal_vector.cross(floor_plane_normal_vector);
   rotation_vector.normalize();
+  
+  // calculate rotation around axis
   float theta = -atan2f(rotation_vector.norm(), xy_plane_normal_vector.dot(floor_plane_normal_vector));
 
+  // Create translation & rotation transformation
   Eigen::Affine3f transform_1(Eigen::Translation3f(-mu));
-
   Eigen::Affine3f transform_2 = Eigen::Affine3f::Identity();
   transform_2.rotate(Eigen::AngleAxisf (theta, rotation_vector));
 
