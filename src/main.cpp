@@ -15,7 +15,6 @@
 #include <fstream>
 #include <sstream>
 
-bool play = false;
 bool showMeshColor = false;
 bool showPoints = true;
 int viewer_mesh_level = 0;
@@ -186,10 +185,8 @@ bool callback_key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int
 
   if (key == '4' && ds)
   {
-    play = !play;
-
     // Set Viewer to tight draw loop
-    viewer.core.is_animating = play;
+    viewer.core.is_animating = !viewer.core.is_animating;
   }
   
   // Increase displayed mesh resolution
@@ -247,16 +244,22 @@ int main(int argc, char* argv[]) {
     
     viewer.callback_pre_draw = [&](igl::opengl::glfw::Viewer & v)->bool 
     { 
-      if (!ds || !play) return false;
+      if (!ds || !viewer.core.is_animating) return false;
 
       Eigen::MatrixXd points, colors;
       Eigen::Matrix4d camera;
-      ds->get_next_point_cloud(points, colors, camera);
+      bool cont = ds->get_next_point_cloud(points, colors, camera);
+      if (!cont)
+      {
+        // end of image sequence 
+        viewer.core.is_animating = false;
+        return false;
+      }
+      
       mesh.set_target_point_cloud(points.cast<float>().eval(), colors.cast<float>().eval());
       mesh.solve(1);
-      
       reload_viewer_data(viewer, P, C, viewer_mesh_level, showMeshColor, showPoints);
-
+      
       return false; 
     }; 
 
@@ -273,7 +276,7 @@ int main(int argc, char* argv[]) {
       ImGui::Text("Iterate: \"1\"");
       ImGui::Text("Next point cloud: \"2\"");
       ImGui::Text("Lots of iterations and point clouds (dataset only): \"3\"");
-      ImGui::Text("Play image sequence (%s): \"4\"", play ? "on" : "off");
+      ImGui::Text("Play image sequence (%s): \"4\"", viewer.core.is_animating ? "on" : "off");
       ImGui::Text("Change mesh level (%d): 0/+", viewer_mesh_level);
       ImGui::Text("Toggle coloring (%s): C", showMeshColor ? "on" : "off");
       ImGui::Text("Toggle point cloud (%s): P", showPoints ? "on" : "off");
